@@ -24,7 +24,7 @@ if (typeof window !== 'undefined' && window.StarkMath) {
 }
 
 (function() {
-    const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS } = StarkMath;
+    const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS, generateFiatShamirQueries } = StarkMath;
 
     class ZKProver {
         constructor(libBcrypt, libArgon2) {
@@ -149,9 +149,32 @@ if (typeof window !== 'undefined' && window.StarkMath) {
             const traceRoot = traceTree.getRoot();
 
             // C. Generate Queries (Fiat-Shamir)
-            const seed = BigInt("0x" + traceRoot.substring(0, 16)); 
-            const queryIdx1 = Number(seed % BigInt(MIMC_ROUNDS)); 
+            // Securely derive multiple query indices from the Trace Root
+            const NUM_QUERIES = 5;
+            // Domain size is MIMC_ROUNDS (0 to 63 check transitions to 1..64)
+            const indices = generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS);
+            
+            // Generate proof for each query
+            const traceQueries = indices.map(idx => {
+                return {
+                    index: idx,
+                    value: trace[idx].toString(),
+                    path: traceTree.getPath(idx),
+                    // Provide the next step to verify the transition logic
+                    next_value: trace[idx + 1].toString(), 
+                    next_path: traceTree.getPath(idx + 1) 
+                };
+            });
+
+            // BOUNDARY CONSTRAINT: Always prove the Last Calculation result matches the claim
             const lastIdx = MIMC_ROUNDS;
+            traceQueries.push({
+                index: lastIdx,
+                value: trace[lastIdx].toString(),
+                path: traceTree.getPath(lastIdx),
+                next_value: null, 
+                next_path: null
+            });
 
             const proof = {
                 proof_type: "zk-stark-mimc-real",
@@ -161,25 +184,7 @@ if (typeof window !== 'undefined' && window.StarkMath) {
                     mimc_output: outputVal.toString(), // The ZK-proven Hash
                     trace_root: traceRoot
                 },
-                // We reveal specific steps of the execution to prove consistency
-                trace_queries: [
-                    {
-                        index: queryIdx1,
-                        value: trace[queryIdx1].toString(),
-                        path: traceTree.getPath(queryIdx1),
-                        // Also provide the next step to verify the transition logic
-                        next_value: trace[queryIdx1 + 1].toString(), 
-                        next_path: traceTree.getPath(queryIdx1 + 1) 
-                    },
-                    // BOUNDARY CONSTRAINT PROOF: Prove the Last Calculation result
-                    {
-                        index: lastIdx,
-                        value: trace[lastIdx].toString(),
-                        path: traceTree.getPath(lastIdx),
-                        next_value: null, // End of trace
-                        next_path: null
-                    }
-                ]
+                trace_queries: traceQueries
             };
 
             return proof;
@@ -220,10 +225,28 @@ if (typeof window !== 'undefined' && window.StarkMath) {
             const traceTree = new MerkleTree(trace);
             const traceRoot = traceTree.getRoot();
 
-            // 4. Generate Proof
-            const seed = BigInt("0x" + traceRoot.substring(0, 16)); 
-            const queryIdx1 = Number(seed % BigInt(MIMC_ROUNDS)); 
+            // 4. Generate Proof (Fiat-Shamir)
+            // Securely derive multiple query indices from the Trace Root
+            const NUM_QUERIES = 5;
+            const indices = generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS);
+
+            const traceQueries = indices.map(idx => ({
+                index: idx,
+                value: trace[idx].toString(),
+                path: traceTree.getPath(idx),
+                next_value: trace[idx + 1].toString(), 
+                next_path: traceTree.getPath(idx + 1) 
+            }));
+
+            // Boundary Check (Output)
             const lastIdx = MIMC_ROUNDS;
+            traceQueries.push({
+                index: lastIdx,
+                value: trace[lastIdx].toString(),
+                path: traceTree.getPath(lastIdx),
+                next_value: null, 
+                next_path: null
+            });
 
             const proof = {
                 proof_type: "zk-stark-knowledge-proof",
@@ -232,22 +255,7 @@ if (typeof window !== 'undefined' && window.StarkMath) {
                     public_output: publicOutput.toString(), // K
                     trace_root: traceRoot
                 },
-                trace_queries: [
-                    {
-                        index: queryIdx1, // Random Spot Check
-                        value: trace[queryIdx1].toString(),
-                        path: traceTree.getPath(queryIdx1),
-                        next_value: trace[queryIdx1 + 1].toString(), 
-                        next_path: traceTree.getPath(queryIdx1 + 1) 
-                    },
-                    {
-                        index: lastIdx, // Boundary Check (Output)
-                        value: trace[lastIdx].toString(),
-                        path: traceTree.getPath(lastIdx),
-                        next_value: null, 
-                        next_path: null
-                    }
-                ]
+                trace_queries: traceQueries
             };
             
             // NOTE: We do NOT include query[0] (the input H). 
@@ -267,11 +275,17 @@ if (typeof window !== 'undefined' && window.StarkMath) {
         async generateAuthProof(password, nonce) {
              if (!this.argon2) throw new Error("Argon2 library not loaded");
 
-             // Use standard hardcoded params for the "Login" simulation
-             // In a real app, 'salt' would be fetched from the user record
+             // Use secure salt generation if available, otherwise fallback for local logic
+             let salt = 'browsersalt123';
+             if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+                 const saltBytes = new Uint8Array(16);
+                 window.crypto.getRandomValues(saltBytes);
+                 salt = Array.from(saltBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+             }
+
              const params = {
                  pass: password,
-                 salt: 'browsersalt123', 
+                 salt: salt, 
                  time: 1, 
                  mem: 1024, 
                  hashLen: 32,
