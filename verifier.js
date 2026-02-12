@@ -6,7 +6,7 @@
  * which is exponentially faster than the prover.
  */
 
-const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS } = require('./stark-math');
+const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS, generateFiatShamirQueries } = require('./stark-math');
 
 class ZKVerifier {
     constructor() {
@@ -102,6 +102,28 @@ class ZKVerifier {
             // 3. Verify Execution Trace Queries (The Logic Check)
             const MIMC_ROUNDS = 64;
             const MIMC_CONSTANTS = Array.from({length: MIMC_ROUNDS}, (_, i) => BigInt(i * 123456789)); 
+
+            // SECURITY: Re-derive the challenge processing from the Public Commitment
+            // This ensures the Prover actually answered the challenges required by the protocol
+            // and didn't cherry-pick safe queries.
+            const NUM_QUERIES = 5;
+            const expectedIndices = new Set(
+                generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS)
+            );
+
+            // Add boundary to expected
+            expectedIndices.add(MIMC_ROUNDS);
+
+            // Validate that we received exactly the required queries
+            // (Client sends array of objects)
+            const receivedIndices = new Set(trace_queries.map(q => q.index));
+            
+            // Check coverage
+            for (let idx of expectedIndices) {
+                if (!receivedIndices.has(idx)) {
+                     return { success: false, error: `Invalid Proof: Missing required Fiat-Shamir query for index ${idx}.` };
+                }
+            }
 
             for(let query of trace_queries) {
                 const idx = query.index;
