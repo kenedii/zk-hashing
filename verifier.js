@@ -24,6 +24,7 @@ class ZKVerifier {
 
     verify(proofObj) {
         try {
+            const NUM_QUERIES = 5;
              // 1. Structural Check
             if (!proofObj) return { success: false, error: "Invalid Proof Format" };
 
@@ -70,7 +71,22 @@ class ZKVerifier {
                     }
                 }
 
-                return { success: true, message: "Use Verified! Knowledge of Secret Proof accepted." };
+                // SECURITY CHECK: Fiat-Shamir Query Coverage
+                // We MUST verify that the Prover answered distinct challenges derived from the Commit Root
+                const expectedIndices = new Set(
+                    generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS)
+                );
+                // Also expect last index
+                expectedIndices.add(MIMC_ROUNDS);
+
+                const receivedIndices = new Set(trace_queries.map(q => q.index));
+                for (let idx of expectedIndices) {
+                     if (!receivedIndices.has(idx)) {
+                         return { success: false, error: `Invalid Proof: Missing required Fiat-Shamir query for index ${idx}.` };
+                     }
+                }
+
+                return { success: true, message: "User Verified! Knowledge of Secret Proof accepted." };
             }
 
             // ==========================================
@@ -96,6 +112,8 @@ class ZKVerifier {
                 // For Argon2/Bcrypt, the key IS derived from the claimed hash
                 // We must use the *entire* hash string to ensure binding to the secure part,
                 // not just the parameters prefix (which might be the first 30 chars).
+                
+                // NOTE: stringToField logic handles the whole string.
                 mimcKey = this.stringToField(outputHash);
             }
 
@@ -104,9 +122,7 @@ class ZKVerifier {
             const MIMC_CONSTANTS = Array.from({length: MIMC_ROUNDS}, (_, i) => BigInt(i * 123456789)); 
 
             // SECURITY: Re-derive the challenge processing from the Public Commitment
-            // This ensures the Prover actually answered the challenges required by the protocol
-            // and didn't cherry-pick safe queries.
-            const NUM_QUERIES = 5;
+            // traceRoot is now strictly Decimal String from new stark-math.js logic
             const expectedIndices = new Set(
                 generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS)
             );

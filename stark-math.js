@@ -69,8 +69,17 @@ function mimcHash(x, k = 0n) {
 
 // Security: Deterministic Random Bit Generator for Fiat-Shamir
 function generateFiatShamirQueries(traceRoot, numQueries, domainSize) {
-    // Parse the root (Hex) to a generic BigInt seed
-    let seed = BigInt("0x" + traceRoot); 
+    // traceRoot is now strictly a Decimal String (BigInt.toString())
+    // Parse directly
+    let seed = 0n;
+    try {
+        seed = BigInt(traceRoot);
+    } catch(e) {
+        // Fallback if somehow old hex data persists in cache
+        if (traceRoot.startsWith && traceRoot.startsWith('0x')) seed = BigInt(traceRoot);
+        else seed = BigInt('0x' + traceRoot);
+    }
+
     const indices = new Set();
     let counter = 0n;
 
@@ -114,42 +123,26 @@ class MerkleTree {
     }
 
     hashPair(a, b) {
-        // Improved Security: Use collision-resistant algebraic hash (MiMC) 
-        // instead of simple string mixing.
-        // H(a, b) = MiMC(a + b*Shift)
-        // We shift 'b' to make the operation non-commutative: H(a,b) != H(b,a)
-        
-        let valA = BigInt("0x" + ((a.startsWith("0x") ? a.slice(2) : a) || "0"));
-        // Handle non-hex inputs (like raw trace values)
-        if (a && !a.startsWith && !a.match(/^[0-9a-fA-F]+$/)) valA = BigInt(a);
-
-        // Try parsing assuming hex strings from previous layers, or decimal for leaves
-        try {
-             // For leaves (decimal strings)
-             if (!a.toString().match(/[xX]/)) valA = BigInt(a);
-        } catch(e) {}
-
-        // We assume inputs are either Field Elements (Decimal String) or Hash Outputs (Hex)
-        // Let's normalize everything to BigInt
+        // Universal Hash: Input Decimal Strings -> Output Decimal String
+        // This ensures consistency across layers (Initial Leaves are Dec, Nodes are Dec)
         const toBI = (val) => {
              if (typeof val === 'bigint') return val;
              val = val.toString();
+             // Since we standardized on Decimal output, treat everything as decimal 
+             // UNLESS it explicitly has 0x prefix (shouldn't happen with new logic but safe to keep)
              if (val.startsWith('0x')) return BigInt(val);
-             // If looks like hex (>16 chars or chars a-f) and not decimal
-             if (/[a-f]/i.test(val) || val.length > 20) return BigInt("0x" + val);
              return BigInt(val);
         };
 
-        const ba = toBI(a);
-        const bb = toBI(b);
+        const ba = toBI(a || "0");
+        const bb = toBI(b || "0");
 
         // Mix: a + 2*b (Simple non-symmetric algebraic mix)
-        // Use mod logic
         const mixed = (ba + (bb * 2n)) % FIELD_MODULUS;
         
         // Hash the mixed value
         const res = mimcHash(mixed);
-        return res.toString(16); // Return Hex
+        return res.toString(); // Return DECIMAL string
     }
 
     getRoot() {
