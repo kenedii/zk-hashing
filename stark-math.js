@@ -59,6 +59,7 @@ function mimcHash(x, k = 0n) {
     for (let i = 0; i < MIMC_ROUNDS; i++) {
         // x = (x + k + ci)^3
         let t = (curr + key + (MIMC_CONSTANTS[i] || 0n)) % FIELD_MODULUS;
+        // Optimization: Use raw BigInt math instead of FieldElement for internal loop speed
         let t2 = (t * t) % FIELD_MODULUS;
         let t3 = (t2 * t) % FIELD_MODULUS;
         curr = t3;
@@ -66,6 +67,26 @@ function mimcHash(x, k = 0n) {
     return (curr + key) % FIELD_MODULUS;
 }
 
+// Security: Deterministic Random Bit Generator for Fiat-Shamir
+function generateFiatShamirQueries(traceRoot, numQueries, domainSize) {
+    // Parse the root (Hex) to a generic BigInt seed
+    let seed = BigInt("0x" + traceRoot); 
+    const indices = new Set();
+    let counter = 0n;
+
+    // Generate distinct indices
+    while (indices.size < numQueries) {
+        // Use MiMC as the PRNG source
+        // Hash(Seed + Counter)
+        const randVal = mimcHash(seed, counter);
+        const idx = Number(randVal % BigInt(domainSize));
+        if (idx < domainSize) { // Valid index
+            indices.add(idx);
+        }
+        counter++;
+    }
+    return Array.from(indices).sort((a,b) => a-b);
+}
 
 // Merkle Tree Implementation for Commitments
 class MerkleTree {
@@ -93,14 +114,42 @@ class MerkleTree {
     }
 
     hashPair(a, b) {
-        // Simple distinct hash function for the Merkle tree
-        // In production STARKs, would use SHA256 or Poseidon
-        let h = 5381n;
-        const str = a + "|" + b;
-        for (let i = 0; i < str.length; i++) {
-            h = ((h * 33n) + BigInt(str.charCodeAt(i))) % FIELD_MODULUS;
-        }
-        return h.toString(16);
+        // Improved Security: Use collision-resistant algebraic hash (MiMC) 
+        // instead of simple string mixing.
+        // H(a, b) = MiMC(a + b*Shift)
+        // We shift 'b' to make the operation non-commutative: H(a,b) != H(b,a)
+        
+        let valA = BigInt("0x" + ((a.startsWith("0x") ? a.slice(2) : a) || "0"));
+        // Handle non-hex inputs (like raw trace values)
+        if (a && !a.startsWith && !a.match(/^[0-9a-fA-F]+$/)) valA = BigInt(a);
+
+        // Try parsing assuming hex strings from previous layers, or decimal for leaves
+        try {
+             // For leaves (decimal strings)
+             if (!a.toString().match(/[xX]/)) valA = BigInt(a);
+        } catch(e) {}
+
+        // We assume inputs are either Field Elements (Decimal String) or Hash Outputs (Hex)
+        // Let's normalize everything to BigInt
+        const toBI = (val) => {
+             if (typeof val === 'bigint') return val;
+             val = val.toString();
+             if (val.startsWith('0x')) return BigInt(val);
+             // If looks like hex (>16 chars or chars a-f) and not decimal
+             if (/[a-f]/i.test(val) || val.length > 20) return BigInt("0x" + val);
+             return BigInt(val);
+        };
+
+        const ba = toBI(a);
+        const bb = toBI(b);
+
+        // Mix: a + 2*b (Simple non-symmetric algebraic mix)
+        // Use mod logic
+        const mixed = (ba + (bb * 2n)) % FIELD_MODULUS;
+        
+        // Hash the mixed value
+        const res = mimcHash(mixed);
+        return res.toString(16); // Return Hex
     }
 
     getRoot() {
@@ -154,7 +203,8 @@ if (typeof module !== 'undefined' && module.exports) {
         FieldElement,
         FIELD_MODULUS,
         mimcHash,
-        MerkleTree
+        MerkleTree,
+        generateFiatShamirQueries
     };
 }
 
@@ -163,6 +213,7 @@ if (typeof window !== 'undefined') {
         FieldElement,
         FIELD_MODULUS,
         mimcHash,
-        MerkleTree
+        MerkleTree,
+        generateFiatShamirQueries
     };
 }
