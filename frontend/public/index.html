@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZK-STARK Hash Proof Demo</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+    <!-- Argon2 Browser (WASM) -->
+    <script src="https://cdn.jsdelivr.net/npm/argon2-browser/dist/argon2-bundled.min.js"></script>
+
+    <!-- ZK Prover Logic (Loaded from our server) -->
+    <script src="/zk-hash/common.js"></script>
+    <script src="/zk-hash/stark-math.js"></script>
+    <script src="/zk-hash/prover.js"></script>
+    
+    <!-- App Logic -->
+    <script src="client.js" defer></script>
+</head>
+<body>
+
+<div class="container">
+    <h1>ZK-Proof Password Hashing</h1>
+    <div class="description">
+        Demonstrating client-side password hashing (Bcrypt/Argon2ID) with Zero-Knowledge verification.
+        <br>
+        <small>Compute Happens in Browser -> Proof Sent to Server -> Server Verifies Execution.</small>
+    </div>
+
+    <!-- Step 1: Input -->
+    <h2>1. Configuration & Input</h2>
+    <div class="row">
+        <div class="col">
+            <div class="control-group">
+                <label for="algo-select">Algorithm</label>
+                <select id="algo-select">
+                    <option value="argon2id">Argon2id (Memory Hard)</option>
+                    <option value="bcrypt">Bcrypt</option>
+                    <option value="mimc-stark">MiMC-Stark (Native ZK)</option>
+                    <option value="zk-auth">ZK Knowledge Proof (Auth)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="password-input">Password (Secret)</label>
+                <input type="text" id="password-input" placeholder="Enter sensitive data..." value="SecretP@ssw0rd">
+            </div>
+            
+            <!-- Params for ZK-Auth -->
+            <div id="params-zk-auth" style="display:none;">
+                <div class="control-group">
+                    <label>Public Challenge (Nonce)</label>
+                    <input type="text" id="auth-nonce" value="123456789">
+                    <small>Proves you know Hash(Secret + Nonce) without sending Secret.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <!-- Params for Argon2 -->
+            <div id="params-argon">
+                <div class="control-group">
+                    <label>Time Cost (Iterations)</label>
+                    <input type="number" id="argon-time" value="1">
+                </div>
+                <div class="control-group">
+                    <label>Memory Cost (KB)</label>
+                    <input type="number" id="argon-mem" value="1024">
+                </div>
+                <div class="control-group">
+                    <label>Hash Length</label>
+                    <input type="number" id="argon-len" value="32">
+                </div>
+            </div>
+
+            <!-- Params for Bcrypt -->
+            <div id="params-bcrypt" style="display:none;">
+                <div class="control-group">
+                    <label>Salt Rounds (Cost)</label>
+                    <input type="number" id="bcrypt-cost" value="10">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button id="btn-generate" class="btn-primary">Generate Hash & ZK Proof</button>
+    </div>
+
+    <!-- Step 2: Output -->
+    <h2>2. Proof Inspection (Editable)</h2>
+    <div class="output-section">
+        <div class="note" id="edit-hint">You can manually tamper with the data below (e.g., change the 'outputHash') to see the server reject the proof!</div>
+        <textarea id="proof-output" placeholder="Proof JSON will appear here..."></textarea>
+    </div>
+
+    <div class="actions">
+        <button id="btn-verify" class="btn-verify">
+            <div id="loader" class="loader"></div>
+            Verify Proof on Server
+        </button>
+    </div>
+
+    <div id="verify-status" class="status"></div>
+
+</div>
+
+</body>
+</html>
