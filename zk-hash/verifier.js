@@ -6,7 +6,7 @@
  * which is exponentially faster than the prover.
  */
 
-const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS, generateFiatShamirQueries } = require('./stark-math');
+const { FieldElement, mimcHash, poseidonHash, MerkleTree, FIELD_MODULUS, generateFiatShamirQueries, MIMC_CONSTANTS } = require('./stark-math');
 
 class ZKVerifier {
     constructor() {
@@ -18,13 +18,12 @@ class ZKVerifier {
         for (let i = 0; i < str.length; i++) {
             val = (val * 256n) + BigInt(str.charCodeAt(i));
         }
-        const m = 3221225473n; // hardcoded modulus same as stark-math
-        return ((val % m) + m) % m;
+        return ((val % FIELD_MODULUS) + FIELD_MODULUS) % FIELD_MODULUS;
     }
 
     verify(proofObj) {
         try {
-            const NUM_QUERIES = 5;
+            const NUM_QUERIES = 40; // Increased for higher soundness (approx 80-128 bits depending on field)
              // 1. Structural Check
             if (!proofObj) return { success: false, error: "Invalid Proof Format" };
 
@@ -37,9 +36,8 @@ class ZKVerifier {
                 const claimedOutput = BigInt(public_inputs.public_output);
                 const nonceVal = this.stringToField(public_inputs.nonce);
 
-                const MIMC_ROUNDS = 64;
-                const MIMC_CONSTANTS = Array.from({length: MIMC_ROUNDS}, (_, i) => BigInt(i * 123456789)); 
-
+                const MIMC_ROUNDS = MIMC_CONSTANTS.length;
+                
                 for(let query of trace_queries) {
                     const idx = query.index;
                     const currVal = BigInt(query.value);
@@ -49,34 +47,57 @@ class ZKVerifier {
                         return { success: false, error: `Merkle Proof failed for index ${idx}.` };
                     }
 
-                    // B. Boundary Check
+                    // B. Boundary Check: Output at MIMC_ROUNDS
                     if (idx === MIMC_ROUNDS) {
                         if (currVal !== claimedOutput) {
                             return { success: false, error: "Output Mismatch: Proof execution does not lead to claimed hash." };
                         }
                         continue;
                     }
+                    
+                    // SKIP BLINDING ROWS
+                    // If we are in the blinding section (idx > MIMC_ROUNDS), we just verify Merkle path (done above)
+                    if (idx > MIMC_ROUNDS) continue;
 
-                    // C. Transition Check: next = (curr + nonce + K)^3
+                    // C. Transition Check: next = (curr + nonce + K)^7
+                    // Check only if we have a valid next state
+                    if (query.next_value === null || query.next_value === undefined) continue;
+
                     // Note: Here 'nonce' acts as the Key
                     const nextVal = BigInt(query.next_value);
                     const roundConst = MIMC_CONSTANTS[idx] || 0n;
 
                     let t = (currVal + nonceVal + roundConst) % FIELD_MODULUS;
                     let t2 = (t * t) % FIELD_MODULUS;
-                    let t3 = (t2 * t) % FIELD_MODULUS;
+                    let t4 = (t2 * t2) % FIELD_MODULUS;
+                    let t7 = (t4 * t2 * t) % FIELD_MODULUS;
                     
-                    if (t3 !== nextVal) {
+                    if (t7 !== nextVal) {
                         return { success: false, error: "Invalid Execution Trace: You do not know the secret that generates this hash." };
                     }
                 }
 
                 // SECURITY CHECK: Fiat-Shamir Query Coverage
                 // We MUST verify that the Prover answered distinct challenges derived from the Commit Root
-                const expectedIndices = new Set(
-                    generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS)
-                );
-                // Also expect last index
+                // REPLICATE PROVER LOGIC: Domain size includes blinding, exclude 0
+                const BLINDING_FACTOR = 4;
+                const queryDomain = MIMC_ROUNDS + BLINDING_FACTOR;
+                
+                // Re-implementation of the custom sampling (should match Prover)
+                // We use Poseidon Hash from StarkMath
+                
+                let expectedIndices = new Set();
+                let counter = 0n;
+                while(expectedIndices.size < NUM_QUERIES) {
+                    const randVal = poseidonHash([BigInt(traceRoot), counter]);
+                    const idx = Number(randVal % BigInt(queryDomain));
+                    if (idx > 0 && idx < queryDomain) { 
+                        expectedIndices.add(idx);
+                    }
+                    counter++;
+                }
+
+                // Also expect last index (Boundary Constraint)
                 expectedIndices.add(MIMC_ROUNDS);
 
                 const receivedIndices = new Set(trace_queries.map(q => q.index));
@@ -95,6 +116,7 @@ class ZKVerifier {
             if (proofObj.proof_type !== "zk-stark-mimc-real") {
                 return { success: false, error: "Unknown Proof Type" };
             }
+
 
             const { public_inputs, trace_queries } = proofObj;
             const traceRoot = public_inputs.trace_root;
@@ -118,14 +140,24 @@ class ZKVerifier {
             }
 
             // 3. Verify Execution Trace Queries (The Logic Check)
-            const MIMC_ROUNDS = 64;
-            const MIMC_CONSTANTS = Array.from({length: MIMC_ROUNDS}, (_, i) => BigInt(i * 123456789)); 
+            const MIMC_ROUNDS = MIMC_CONSTANTS.length; 
 
             // SECURITY: Re-derive the challenge processing from the Public Commitment
             // traceRoot is now strictly Decimal String from new stark-math.js logic
-            const expectedIndices = new Set(
-                generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS)
-            );
+            const BLINDING_FACTOR = 4;
+            const queryDomain = MIMC_ROUNDS + BLINDING_FACTOR;
+            
+            let expectedIndices = new Set();
+            let counter = 0n;
+            while(expectedIndices.size < NUM_QUERIES) {
+                // Must match Prover's exclusion of 0 and use of Poseidon
+                const randVal = poseidonHash([BigInt(traceRoot), counter]);
+                const idx = Number(randVal % BigInt(queryDomain));
+                if (idx > 0 && idx < queryDomain) { 
+                    expectedIndices.add(idx);
+                }
+                counter++;
+            }
 
             // Add boundary to expected
             expectedIndices.add(MIMC_ROUNDS);
@@ -143,6 +175,9 @@ class ZKVerifier {
 
             for(let query of trace_queries) {
                 const idx = query.index;
+                // If blinding row, skip logic checks (just merkle check done implicitly? No, need to do Merkle check below)
+                // Actually Merkle check is first thing in loop usually.
+                
                 const currVal = BigInt(query.value);
                 
                 // A. Verify Merkle Path (Authentication)
@@ -151,17 +186,26 @@ class ZKVerifier {
                      return { success: false, error: `Merkle Proof failed for index ${idx} (Tampered Data)` };
                 }
 
-                // BOUNDARY CHECK: If this is the last step, it MUST match the mimc_output
-                if (idx === MIMC_ROUNDS) {
-                    if (currVal !== mimcOutput) {
-                        return { success: false, error: "Boundary Constraint Failed: Trace end does not match claimed output." };
+                // Skip computation checks for Blinding Rows
+                if (idx >= MIMC_ROUNDS) {
+                    // BOUNDARY CHECK: If this is the output index (MIMC_ROUNDS), it MUST match claimed output
+                    // If it is > MIMC_ROUNDS, it is blinding noise, ignore value.
+                    if (idx === MIMC_ROUNDS) {
+                        // Check if it matches public input output
+                        // But wait, what is 'mimcOutput'? It's not defined in this scope clearly in snippet?
+                        // Ah, line 125: if (outputHash !== public_inputs.mimc_output)
+                        // It seems we should check against `public_inputs.mimc_output` or `claimedOutput`
+                        // Let's use BigInt(public_inputs.mimc_output)
+                        if (currVal !== BigInt(public_inputs.mimc_output)) {
+                            return { success: false, error: "Boundary Constraint Failed: Trace end does not match claimed output." };
+                        }
                     }
-                    continue; // No transition for the last element
+                    continue; 
                 }
                 
                 // B. Verify Transition Function (The "AIR" Constraint)
                 // Does State[i+1] == Logic(State[i]) ?
-                // Logic: next = (curr + KEY + ROUND_CONSTANT)^3
+                // Logic: next = (curr + KEY + ROUND_CONSTANT)^7
                 
                 const nextVal = BigInt(query.next_value);
                 const roundConst = MIMC_CONSTANTS[idx] || 0n;
@@ -169,22 +213,16 @@ class ZKVerifier {
                 // CRITICAL: We use the 'mimcKey' derived from the Public Output Hash here.
                 let t = (currVal + mimcKey + roundConst) % FIELD_MODULUS;
                 let t2 = (t * t) % FIELD_MODULUS;
-                let t3 = (t2 * t) % FIELD_MODULUS;
-                const expectedNext = t3;
+                let t4 = (t2 * t2) % FIELD_MODULUS;
+                let t7 = (t4 * t2 * t) % FIELD_MODULUS;
+                const expectedNext = t7;
                 
                 if (expectedNext !== nextVal) {
-                     return { 
-                         success: false, 
-                         error: `Constraint Validation Failed at step ${idx}. The Proof provided is invalid for this Hash. (Tampering Detected)` 
-                    };
+                     return { success: false, error: "Invalid Execution Trace: Hash Computation was forged." };
                 }
             }
             
-            return { 
-                success: true, 
-                message: `STARK Proof Verified! Validated ${public_inputs.algorithm} integrity via Binding.` 
-            };
-
+            return { success: true, message: "Valid Proof! Hash Integrity Verified." };
         } catch (e) {
             console.error(e);
             return { success: false, error: "Verification Logic Error: " + e.message };

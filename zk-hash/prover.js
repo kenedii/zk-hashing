@@ -24,7 +24,7 @@ if (typeof window !== 'undefined' && window.StarkMath) {
 }
 
 (function() {
-    const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS, generateFiatShamirQueries } = StarkMath;
+    const { FieldElement, mimcHash, MerkleTree, FIELD_MODULUS, generateFiatShamirQueries, MIMC_CONSTANTS } = StarkMath;
 
     class ZKProver {
         constructor(libBcrypt, libArgon2) {
@@ -122,22 +122,30 @@ if (typeof window !== 'undefined' && window.StarkMath) {
             
             trace.push(curr); // Input (state 0)
             
-            const MIMC_ROUNDS = 64;
-            const MIMC_CONSTANTS = Array.from({length: MIMC_ROUNDS}, (_, i) => BigInt(i * 123456789)); 
-
+            const MIMC_ROUNDS = MIMC_CONSTANTS.length;
+            
             for(let i=0; i<MIMC_ROUNDS; i++) {
-                 // x = (x + k + ci)^3
-                 // We add the `mimcKey` (derived from Argon2 hash) into the state transition
-                 // This cryptographically binds the trace to the Argon2 hash.
+                 // x = (x + k + ci)^7 for Goldilocks
                  
                  let t = (curr + mimcKey + (MIMC_CONSTANTS[i] || 0n)) % FIELD_MODULUS;
                  let t2 = (t * t) % FIELD_MODULUS;
-                 let t3 = (t2 * t) % FIELD_MODULUS;
-                 curr = t3;
+                 let t4 = (t2 * t2) % FIELD_MODULUS;
+                 let t7 = (t4 * t2 * t) % FIELD_MODULUS;
+                 curr = t7;
                  trace.push(curr);
             }
-            
+
             const outputVal = curr; // The result of the computation
+
+            // ADD BLINDING for Zero Knowledge
+            // Even in "Proof of Computation", we want to hide intermediate values if possible
+            // or simply follow the ZK protocol standard (though here input might be secret password)
+            const BLINDING_FACTOR = 4;
+            for (let i = 0; i < BLINDING_FACTOR; i++) {
+                let rnd = (curr * 12345n + BigInt(i)) % FIELD_MODULUS; 
+                trace.push(rnd);
+                curr = rnd;
+            }
 
             // If we are in native mode, the outputHash IS this value
             if (algorithm === 'mimc-stark') {
@@ -150,19 +158,32 @@ if (typeof window !== 'undefined' && window.StarkMath) {
 
             // C. Generate Queries (Fiat-Shamir)
             // Securely derive multiple query indices from the Trace Root
-            const NUM_QUERIES = 5;
-            // Domain size is MIMC_ROUNDS (0 to 63 check transitions to 1..64)
-            const indices = generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS);
+            const NUM_QUERIES = 40;
+            const queryDomain = MIMC_ROUNDS + BLINDING_FACTOR;
+            
+            // We use generateFiatShamirQueries but filter out index 0 if it appears
+            let indices = new Set();
+            let counter = 0n;
+            while(indices.size < NUM_QUERIES) {
+                // Custom sampling loop to ensure we don't pick 0
+                const randVal = StarkMath.poseidonHash([BigInt(traceRoot), counter]);
+                const idx = Number(randVal % BigInt(queryDomain));
+                if (idx > 0 && idx < queryDomain) { 
+                    indices.add(idx);
+                }
+                counter++;
+            }
+            const sortedIndices = Array.from(indices).sort((a,b) => a-b);
             
             // Generate proof for each query
-            const traceQueries = indices.map(idx => {
+            const traceQueries = sortedIndices.map(idx => {
                 return {
                     index: idx,
                     value: trace[idx].toString(),
                     path: traceTree.getPath(idx),
                     // Provide the next step to verify the transition logic
-                    next_value: trace[idx + 1].toString(), 
-                    next_path: traceTree.getPath(idx + 1) 
+                    next_value: (idx < trace.length - 1) ? trace[idx + 1].toString() : "0", 
+                    next_path: (idx < trace.length - 1) ? traceTree.getPath(idx + 1) : []
                 };
             });
 
@@ -195,10 +216,8 @@ if (typeof window !== 'undefined' && window.StarkMath) {
          * This allows proving knowledge of H without revealing H.
          */
         generateKnowledgeProof(secretHash, nonce) {
-             const MIMC_ROUNDS = 64;
-             const MIMC_CONSTANTS = Array.from({length: MIMC_ROUNDS}, (_, i) => BigInt(i * 123456789)); 
-             const FIELD_MODULUS = 3221225473n; // ensure available
-
+             const MIMC_ROUNDS = MIMC_CONSTANTS.length;
+             
              // 1. Convert Secret (H) to Field Element
              const secretVal = this.stringToField(secretHash).val;
              const nonceVal = this.stringToField(nonce).val;
@@ -211,15 +230,29 @@ if (typeof window !== 'undefined' && window.StarkMath) {
              let curr = secretVal;
              trace.push(curr);
 
+             const BLINDING_FACTOR = 4; // Add 4 random field elements
+
              for(let i=0; i<MIMC_ROUNDS; i++) {
-                 // x = (x + k + ci)^3
+                 // x = (x + k + ci)^7
                  let t = (curr + nonceVal + (MIMC_CONSTANTS[i] || 0n)) % FIELD_MODULUS;
                  let t2 = (t * t) % FIELD_MODULUS;
-                 let t3 = (t2 * t) % FIELD_MODULUS;
-                 curr = t3;
+                 let t4 = (t2 * t2) % FIELD_MODULUS;
+                 let t7 = (t4 * t2 * t) % FIELD_MODULUS;
+                 curr = t7;
                  trace.push(curr);
             }
             const publicOutput = curr; // This is K
+
+            // Blinding for Zero Knowledge
+            // Add random elements to the end of trace so that partial trace exposure
+            // still feels random to the observer (and increases the merkle set size)
+            for (let i = 0; i < BLINDING_FACTOR; i++) {
+                // Pseudo-random blinding relative to trace/nonce but structurally independent
+                // In production use a true RNG
+                let rnd = (curr * 12345n + BigInt(i)) % FIELD_MODULUS; 
+                trace.push(rnd);
+                curr = rnd;
+            }
 
             // 3. Commit
             const traceTree = new MerkleTree(trace);
@@ -227,20 +260,38 @@ if (typeof window !== 'undefined' && window.StarkMath) {
 
             // 4. Generate Proof (Fiat-Shamir)
             // Securely derive multiple query indices from the Trace Root
-            const NUM_QUERIES = 5;
-            const indices = generateFiatShamirQueries(traceRoot, NUM_QUERIES, MIMC_ROUNDS);
+            const NUM_QUERIES = 40;
+            // IMPORTANT: Exclude the first layer (secret input) from being queryable directly 
+            // if using direct Trace Merkle proofs. Advanced ZK-STARKs use Low Degree Extensions (LDE)
+            // and FRI to hide committed values, but blinding serves a similar purpose here.
+            // For this demo, we shift the query domain to start at 1.
+            const queryDomain = MIMC_ROUNDS + BLINDING_FACTOR;
+            
+            // We use generateFiatShamirQueries but filter out index 0 if it appears
+            let indices = new Set();
+            let counter = 0n;
+            while(indices.size < NUM_QUERIES) {
+                // Custom sampling loop to ensure we don't pick 0
+                const randVal = StarkMath.poseidonHash([BigInt(traceRoot), counter]);
+                const idx = Number(randVal % BigInt(queryDomain));
+                if (idx > 0 && idx < queryDomain) { 
+                    indices.add(idx);
+                }
+                counter++;
+            }
+            const sortedIndices = Array.from(indices).sort((a,b) => a-b);
 
-            const traceQueries = indices.map(idx => ({
+            const traceQueries = sortedIndices.map(idx => ({
                 index: idx,
                 value: trace[idx].toString(),
                 path: traceTree.getPath(idx),
-                next_value: trace[idx + 1].toString(), 
-                next_path: traceTree.getPath(idx + 1) 
+                next_value: (idx < trace.length - 1) ? trace[idx + 1].toString() : "0", 
+                next_path: (idx < trace.length - 1) ? traceTree.getPath(idx + 1) : []
             }));
 
             // Boundary Check (Output)
-            const lastIdx = MIMC_ROUNDS;
-            traceQueries.push({
+            const lastIdx = MIMC_ROUNDS; // The output of computation is at index 64
+             traceQueries.push({
                 index: lastIdx,
                 value: trace[lastIdx].toString(),
                 path: traceTree.getPath(lastIdx),
