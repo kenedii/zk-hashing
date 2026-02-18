@@ -66,6 +66,27 @@ class ZKVerifier {
                 throw new Error("rc_commitment mismatch: prover used non-canonical round constants");
             }
 
+            // ── Hash-field binding check (bcrypt / argon2) ───────────────────────────
+            // For bcrypt and argon2 proofs the prover encodes the output hash string
+            // as the STARK nonce (padded-hex of UTF-8 bytes).  We re-derive that
+            // value here and confirm it matches public_inputs.nonce, so an attacker
+            // cannot substitute a different hash string while reusing the same proof.
+            if (proof.proof_type === 'zk-stark-bcrypt' || proof.proof_type === 'zk-stark-argon2') {
+                if (!public_inputs.hash) {
+                    throw new Error("Missing public_inputs.hash for bcrypt/argon2 proof");
+                }
+                // Mirror the prover's padded-hex nonce encoding exactly
+                const expectedNonce = (BigInt("0x" + Array.from(public_inputs.hash)
+                    .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
+                    .join('')) % FIELD_MODULUS).toString();
+                if (!public_inputs.nonce || public_inputs.nonce !== expectedNonce) {
+                    throw new Error(
+                        "Hash-nonce mismatch: public_inputs.hash does not match the nonce " +
+                        "committed in the STARK proof — the hash field has been tampered with"
+                    );
+                }
+            }
+
             // ── 1. RECONSTRUCT TRANSCRIPT ────────────────────────────────────────────
             const transcript = new Transcript();
 
