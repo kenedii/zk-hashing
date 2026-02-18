@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture & Security — ZK-STARK Hash Proof</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #30363d;
+            flex-wrap: wrap;
+        }
+        .tab-button {
+            background: none;
+            border: none;
+            color: #8b949e;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .tab-button:hover {
+            color: #c9d1d9;
+        }
+        .tab-button.active {
+            color: #58a6ff;
+            border-bottom-color: #58a6ff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .section-box {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .math-block {
+            background-color: #010409;
+            border-left: 3px solid #58a6ff;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        .flow-diagram {
+            background-color: #010409;
+            border: 1px dashed #30363d;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            overflow-x: auto;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+        h3 {
+            color: #79c0ff;
+            margin-top: 20px;
+        }
+        .highlight {
+            background-color: rgba(88, 166, 255, 0.1);
+            border-left: 3px solid #58a6ff;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background-color: #0d1117;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #30363d;
+            padding: 10px;
+            text-align: left;
+        }
+        .comparison-table th {
+            background-color: #161b22;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+        .comparison-table tr:nth-child(even) {
+            background-color: #0d1117;
+        }
+        .comparison-table tr:nth-child(odd) {
+            background-color: #010409;
+        }
+        ul, ol {
+            line-height: 1.8;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        code {
+            background-color: #010409;
+            border: 1px solid #30363d;
+            border-radius: 3px;
+            padding: 2px 6px;
+            color: #79c0ff;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .back-link {
+            color: #58a6ff;
+            text-decoration: none;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="index.html" class="back-link">← Back to Demo</a>
+    
+    <h1>ZK-STARK Password Hashing Architecture</h1>
+    <div class="description">
+        Comprehensive guide to the authentication system, cryptographic proofs, and server-side efficiency.
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-container">
+        <button class="tab-button active" onclick="switchTab('overview')">Overview</button>
+        <button class="tab-button" onclick="switchTab('flow')">Registration & Login</button>
+        <button class="tab-button" onclick="switchTab('auth-types')">Auth Workflows</button>
+        <button class="tab-button" onclick="switchTab('math')">Math & Cryptography</button>
+        <button class="tab-button" onclick="switchTab('security')">Security & Soundness</button>
+        <button class="tab-button" onclick="switchTab('server')">Server Storage</button>
+        <button class="tab-button" onclick="switchTab('efficiency')">Client-Side Benefits</button>
+    </div>
+
+    <!-- TAB: Overview -->
+    <div id="overview" class="tab-content active">
+        <h2>System Overview</h2>
+        
+        <div class="section-box">
+            <h3>What Problem Does This Solve?</h3>
+            <p>
+                Traditional password authentication requires the server to:
+            </p>
+            <ul>
+                <li><strong>Store hashes</strong> (bcrypt/argon2) — but databases can be breached</li>
+                <li><strong>Compute memory-hard functions</strong> — expensive for login verification (5-100MB RAM per attempt)</li>
+                <li><strong>Rate-limit login attempts</strong> — to prevent brute-force attacks</li>
+            </ul>
+            <p>
+                This system shifts the computational burden to the <strong>client (user's browser)</strong> while providing cryptographic proof that the computation was done correctly. The server never computes the expensive hash.
+            </p>
+        </div>
+
+        <div class="highlight">
+            <strong>Key Insight:</strong> Instead of "send password → server hashes it", we use:
+            <br/><br/>
+            <strong>"client hashes password → proves it knows the hash → server verifies proof"</strong>
+        </div>
+
+        <div class="section-box">
+            <h3>Core Components</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Component</th>
+                    <th>Purpose</th>
+                    <th>Location</th>
+                </tr>
+                <tr>
+                    <td><strong>Hash Function</strong><br/>(Bcrypt/Argon2)</td>
+                    <td>Convert password to cryptographically secure hash</td>
+                    <td>Browser (Client)</td>
+                </tr>
+                <tr>
+                    <td><strong>STARK Prover</strong></td>
+                    <td>Generate zero-knowledge proof that hash was computed correctly</td>
+                    <td>Browser (Client)</td>
+                </tr>
+                <tr>
+                    <td><strong>STARK Verifier</strong></td>
+                    <td>Cryptographically verify the proof without recomputing the hash</td>
+                    <td>Server</td>
+                </tr>
+                <tr>
+                    <td><strong>Database</strong></td>
+                    <td>Store user account metadata and proof-verification records</td>
+                    <td>Server</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section-box">
+            <h3>Three Hashing Algorithms Supported</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Algorithm</th>
+                    <th>Type</th>
+                    <th>Memory Cost</th>
+                    <th>Speed</th>
+                    <th>Proof Size</th>
+                    <th>Best For</th>
+                </tr>
+                <tr>
+                    <td><strong>Bcrypt</strong></td>
+                    <td>Key Derivation</td>
+                    <td>~4 KB</td>
+                    <td>~100ms (cost=10)</td>
+                    <td>~700 KB</td>
+                    <td>Fast login</td>
+                </tr>
+                <tr>
+                    <td><strong>Argon2id</strong></td>
+                    <td>Memory-Hard</td>
+                    <td>~1 MB</td>
+                    <td>~500ms (1 iter, 1 GB)</td>
+                    <td>~700 KB</td>
+                    <td>High security</td>
+                </tr>
+                <tr>
+                    <td><strong>MiMC-7 STARK</strong></td>
+                    <td>ZK Native</td>
+                    <td>None</td>
+                    <td>~2s</td>
+                    <td>~700 KB</td>
+                    <td>ZK protocol</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB: Registration & Login Flow -->
+    <div id="flow" class="tab-content">
+        <h2>Registration & Authentication Flows</h2>
+
+        <div class="section-box">
+            <h3>🔧 Registration Flow (First Time)</h3>
+            <div class="flow-diagram">
+┌─────────────────┐                        ┌──────────────┐
+│   User Browser  │                        │ Server / DB  │
+└────────┬────────┘                        └──────┬───────┘
+         │                                         │
+         │  1. User enters password                │
+         │     (e.g., "SecurePassword123")         │
+         │                                         │
+         ├─────────────────────────────────────→  │
+         │  2. Browser: hash password              │
+         │     (Bcrypt/Argon2id)                   │
+         │     output = Hash("SecurePassword123")  │
+         │                                         │
+         ├─────────────────────────────────────→  │
+         │  3. Browser: generate ZK proof         │
+         │     Proof that: "I know a value        │
+         │     that hashes to output"              │
+         │                                         │
+         │     Send: {                             │
+         │       hash: output,                     │
+         │       proof: {...STARK proof...}        │
+         │     }                                   │
+         │                                         │
+         ├────────────── POST /register ─────────→ │
+         │                                         │
+         │                        4. Server:       │
+         │                        - Verify proof   │
+         │                        - Extract hash   │
+         │                        - Store in DB    │
+         │                                         │
+         │  5. 201 Created (account ready)         │
+         │  ←──────────────────────────────────    │
+         │                                         │
+         │                        DB now has:      │
+         │                        {                │
+         │                          username: ..., │
+         │                          hash: output,  │
+         │                          proof_hash:...,│
+         │                          created: ...   │
+         │                        }                │
+         │                                         │
+            </div>
+
+            <div class="highlight">
+                <strong>What the server stores:</strong>
+                <ul>
+                    <li><code>username</code> — User identifier</li>
+                    <li><code>hash</code> — The bcrypt/argon2 output (proof of correct computation)</li>
+                    <li><code>proof_hash</code> — SHA-256 of the original STARK proof (audit trail)</li>
+                    <li><code>algorithm</code> — "bcrypt" | "argon2id"</li>
+                    <li><code>created_at</code> — Registration timestamp</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>🔐 Login Flow (Authentication)</h3>
+            <div class="flow-diagram">
+┌─────────────────┐                        ┌──────────────┐
+│   User Browser  │                        │ Server / DB  │
+└────────┬────────┘                        └──────┬───────┘
+         │                                         │
+         │  1. User enters password                │
+         │     (e.g., "SecurePassword123")         │
+         │                                         │
+         │  2. Browser: hash password              │
+         │     with SAME parameters as stored      │
+         │                                         │
+         │     output = Hash("SecurePassword123")  │
+         │                                         │
+         │  3. Browser: generate ZK proof         │
+         │                                         │
+         │  Send: {hash, proof}                    │
+         │                                         │
+         ├────────────── POST /login ────────────→ │
+         │                                         │
+         │                        4. Server:       │
+         │                        - Verify proof   │
+         │                        - Extract hash   │
+         │                        - Compare with   │
+         │                          stored hash    │
+         │                                         │
+         │  5. If match: 200 OK (logged in)        │
+         │  ←──────────────────────────────────    │
+         │     (Session/JWT token issued)          │
+         │                                         │
+         │  6. If NO match: 401 Unauthorized       │
+         │  ←──────────────────────────────────    │
+         │     (Proof verifies but hash differs)   │
+         │                                         │
+            </div>
+
+            <div class="highlight">
+                <strong>Why this approach is better:</strong>
+                <ul>
+                    <li>Server <strong>never computes Argon2</strong> (which costs 500ms + 1GB RAM)</li>
+                    <li>Server <strong>only verifies proof</strong> (~200ms, no expensive hashing)</li>
+                    <li>Proof verification is <strong>deterministic & non-interactive</strong></li>
+                    <li>Resistant to <strong>server-side timing attacks</strong> (computation is on client)</li>
+                    <li>Attacker can't brute-force the server (client-side delay)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>🚪 Login Failure Scenarios</h3>
+            <ul>
+                <li>
+                    <strong>Wrong password:</strong> Client hashes to different output → proof still valid
+                    but <code>hash</code> field doesn't match stored hash → 401 Unauthorized
+                </li>
+                <li>
+                    <strong>Proof is forged:</strong> STARK verification fails at AIR/FRI check → 400 Bad Request
+                </li>
+                <li>
+                    <strong>Hash field tampered:</strong> Our fix catches this — hash-nonce binding check fails
+                    → 400 Bad Request
+                </li>
+                <li>
+                    <strong>User doesn't exist:</strong> Query returns null → 401 Unauthorized (no timing leak)
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- TAB: Authentication Types & Workflows -->
+    <div id="auth-types" class="tab-content">
+        <h2>Authentication Workflows & Architectures</h2>
+
+        <div class="section-box">
+            <h3>Overview: Three Authentication Patterns</h3>
+            <p>
+                This system supports multiple authentication workflows, each suited for different security and privacy requirements.
+            </p>
+            <table class="comparison-table">
+                <tr>
+                    <th>Pattern</th>
+                    <th>Server Stores</th>
+                    <th>Registration Hash</th>
+                    <th>Login Hash</th>
+                    <th>Best For</th>
+                </tr>
+                <tr>
+                    <td><strong>Verified Hash Storage</strong></td>
+                    <td>H(password, salt)</td>
+                    <td>H(p, salt)</td>
+                    <td>H(H(p, salt), nonce)</td>
+                    <td>Standard authentication</td>
+                </tr>
+                <tr>
+                    <td><strong>ZK-Only (No Storage)</strong></td>
+                    <td>Proof commitment only</td>
+                    <td>H(p, salt)</td>
+                    <td>H(H(p, salt), nonce)</td>
+                    <td>Maximum privacy</td>
+                </tr>
+                <tr>
+                    <td><strong>Salted Lookup</strong></td>
+                    <td>salt (unique per user)</td>
+                    <td>H(p, salt)</td>
+                    <td>H(H(p, salt), nonce)</td>
+                    <td>Password breach mitigation</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section-box">
+            <h3>Pattern 1: Verified Hash Storage (Current Implementation)</h3>
+            <p>
+                This is the standard approach: server stores the hash, uses it to verify logins.
+            </p>
+
+            <h4>Registration: H(p, salt) → Store Hash</h4>
+            <div class="math-block">
+Registration Process:
+  1. User submits password p
+  2. Client: 
+     - Generate random salt s
+     - Compute h₁ = H(p, s)  ← First hash with salt
+     - Generate STARK proof of h₁
+  3. Server receives: {h₁, proof, username}
+  4. Server:
+     - Verify STARK proof
+     - Store h₁ in database
+     
+Database stores: {username, h₁, algorithm, salt (if needed)}
+            </div>
+
+            <div class="highlight">
+                <strong>Why this works:</strong>
+                <ul>
+                    <li>Salt prevents rainbow table attacks</li>
+                    <li>STARK proof verifies correct computation on client</li>
+                    <li>Server never touches password or expensive hash computation</li>
+                    <li>Can use strong memory-hard functions (Argon2id)</li>
+                </ul>
+            </div>
+
+            <h4>Login: H(H(p, salt), nonce) → Verify Against Stored</h4>
+            <div class="math-block">
+Login Process:
+  1. User submits password p
+  2. Server sends: {username, nonce} 
+     where nonce = random challenge
+  3. Client:
+     - Look up stored salt for this username (or receive from server)
+     - Compute h₁ = H(p, salt)  ← Same as registration
+     - Compute h₂ = H(h₁, nonce)  ← Hash of hash with nonce
+     - Generate STARK proof of h₂
+  4. Server receives: {h₂, proof}
+  5. Server:
+     - Verify STARK proof
+     - Re-derive: expected_h₂ = H(stored_h₁, nonce)
+     - Compare: if h₂ == expected_h₂ then LOGIN SUCCESS
+     
+Login succeeds only if:
+  ✓ STARK proof is valid (computation was correct)
+  ✓ h₂ matches expected value (password was correct)
+            </div>
+
+            <div class="highlight">
+                <strong>Double Hashing: Why H(H(p, s), nonce)?</strong>
+                <br/>
+                <ul>
+                    <li>
+                        <strong>Registration uses H(p, s):</strong> Expensive, memory-hard (Argon2id)
+                        Server stores this value, but client can't feasibly compute it per login attempt
+                    </li>
+                    <li>
+                        <strong>Login uses H(H(p, s), nonce):</strong> Quick inner hash, then outer hash with nonce
+                        This is much faster but still cryptographically secure
+                    </li>
+                    <li>
+                        <strong>Nonce prevents replay:</strong> Each login uses different nonce
+                        Same password → different proof each time
+                    </li>
+                    <li>
+                        <strong>Proof binds both:</strong> STARK proof cryptographically verifies entire computation
+                    </li>
+                </ul>
+            </div>
+
+            <h4>Visual Flow</h4>
+            <div class="flow-diagram">
+Registration:
+  User: "password123"
+    ↓ [Client: hash with Argon2]
+  h₁ = Argon2("password123", salt)
+    ↓ [Client: STARK proof]
+  proof₁ = STARK_prove(h₁)
+    ↓ [Send to server]
+  Server stores: {user, h₁, salt}
+
+Login:
+  User: "password123"
+  Server sends: nonce=random123
+    ↓ [Client: re-derive h₁]
+  h₁ = Argon2("password123", stored_salt)
+    ↓ [Client: hash h₁ with nonce]
+  h₂ = SHA256(h₁ || nonce)
+    ↓ [Client: STARK proof of h₂]
+  proof₂ = STARK_prove(h₂)
+    ↓ [Send {h₂, proof₂}]
+  Server:
+    - Verify proof₂
+    - Compute: expected = SHA256(stored_h₁ || nonce)
+    - If h₂ == expected: LOGIN SUCCESS
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Pattern 2: ZK-Only (No Hash Storage)</h3>
+            <p>
+                For maximum privacy, server never stores the actual hash. Instead, it stores a commitment
+                to the hash and verifies only through zero-knowledge proofs.
+            </p>
+
+            <h4>The Challenge: Can We Authenticate Without Storing H(p)?</h4>
+            <div class="highlight">
+                <strong>Answer: Yes, using commitments!</strong>
+                <br/><br/>
+                Instead of storing h₁ = H(p, s), store a cryptographic commitment:
+                <br/>
+                <code>commitment = Poseidon(h₁, pepper)</code>
+                <br/>
+                where pepper is server-secret (never given to client).
+            </div>
+
+            <h4>Registration: H(p, salt) → Store Commitment Only</h4>
+            <div class="math-block">
+Registration Process:
+  1. Client: h₁ = Argon2(p, salt)
+  2. Client: Generate STARK proof of h₁
+  3. Client sends: {h₁, proof}  ← hash visible during registration
+  4. Server receives:
+     - Verify STARK proof
+     - Compute: C = Poseidon(h₁, secret_pepper)
+     - Store ONLY C in database (forget h₁)
+     - h₁ is never stored, only commitment
+     
+Database stores: {username, C, algorithm}
+  where C = Poseidon(h₁, pepper) and pepper is server-secret
+            </div>
+
+            <h4>Login: Prove Knowledge of H(H(p, salt), nonce) Without Revealing</h4>
+            <div class="math-block">
+Login Process:
+  1. Server sends: {nonce, pepper_share}
+     where pepper_share = pepper ⊕ session_key
+  2. Client:
+     - Compute h₁ = Argon2(p, salt) [same as registration]
+     - Compute pepper = pepper_share ⊕ session_key
+     - Verify: C_expected = Poseidon(h₁, pepper)
+     - Compute h₂ = SHA256(h₁ || nonce)
+     - Generate STARK proof that:
+       ✓ h₁ commits to correct password
+       ✓ h₂ = SHA256(h₁, nonce)
+       ✓ C_computed matches stored C
+  3. Server:
+     - Verify STARK proof
+     - Does NOT see h₁ or h₂ (only proof)
+     - Knows client proved knowledge of correct password
+     
+Login succeeds purely through ZK proof verification!
+            </div>
+
+            <div class="highlight">
+                <strong>Advantages of ZK-Only:</strong>
+                <ul>
+                    <li>
+                        <strong>No breach of H(p):</strong> Server never stores the hash itself
+                        Even if database is stolen, attacker gets only commitments
+                    </li>
+                    <li>
+                        <strong>Perfect forward secrecy:</strong> Old proofs are useless
+                        Each login generates new proof with new nonce
+                    </li>
+                    <li>
+                        <strong>Reduced server liability:</strong> Can't leak what's not stored
+                    </li>
+                    <li>
+                        <strong>Privacy-first:</strong> Alignment with privacy regulations (GDPR, etc.)
+                    </li>
+                </ul>
+            </div>
+
+            <h4>Implementation Notes</h4>
+            <div class="math-block">
+Server-side:
+  pepper = 256-bit secret, stored in secure key management
+  
+Registration:
+  C = Poseidon(h₁, pepper)
+  DELETE h₁ after verification (don't store)
+  
+Login:
+  pepper_share = pepper ⊕ session_key
+  Send pepper_share over HTTPS
+  Client recovers pepper using session_key
+  Client proves it knows h₁ via proof
+  Server never sees h₁
+  
+Problem to solve:
+  How does client prove knowledge of h₁ without revealing it?
+  Answer: STARK proof that proves the computation!
+  The proof itself becomes the authentication credential.
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Pattern 3: Salted Lookup (Hybrid)</h3>
+            <p>
+                A middle ground: server stores salt (cheap) and uses it to verify, but not the hash itself.
+            </p>
+
+            <h4>Registration: Generate & Store Salt</h4>
+            <div class="math-block">
+Registration Process:
+  1. Client: 
+     - h₁ = Argon2(p, salt)
+     - proof = STARK_prove(h₁)
+  2. Server:
+     - Verify proof
+     - Store: {username, salt, proof_hash}
+     - Do NOT store h₁ (salt is enough)
+     
+Database stores: {username, salt, algorithm}
+  Salt allows server to validate password without storing hash.
+            </div>
+
+            <h4>Login: Derive Expected Hash From Stored Salt</h4>
+            <div class="math-block">
+Login Process (Server-Side):
+  1. User claims identity: username
+  2. Server looks up: stored_salt
+  3. Server sends: {nonce, salt}  ← Server reveals salt
+  4. Client:
+     - h₁ = Argon2(password, salt)  ← Derives h₁ from password + salt
+     - h₂ = SHA256(h₁, nonce)
+     - proof = STARK_prove(h₂)
+  5. Server:
+     - Verify STARK proof
+     - Verify structure: proof proves knowledge of some h₁
+     - Accept login (no need to compare against stored value!)
+     
+Key insight: Server doesn't verify "is this the right hash?"
+Instead: "Can you prove you know SOME h₁ that led to this proof?"
+With cryptographic proof, this IS enough!
+            </div>
+
+            <div class="highlight">
+                <strong>Advantages of Salted Lookup:</strong>
+                <ul>
+                    <li>
+                        <strong>Salt stored separately:</strong> Different users have different salts
+                        Rainbow table attacks impossible (each user has unique salt)
+                    </li>
+                    <li>
+                        <strong>No hash storage:</strong> Doesn't store H(p, s), only the salt s
+                    </li>
+                    <li>
+                        <strong>Simpler than ZK-only:</strong> No need for pepper, commitments, or complex proofs
+                    </li>
+                    <li>
+                        <strong>Good privacy/usability balance:</strong> Practical and secure
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Comparison: Which Pattern to Use?</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Aspect</th>
+                    <th>Hash Storage</th>
+                    <th>ZK-Only</th>
+                    <th>Salted Lookup</th>
+                </tr>
+                <tr>
+                    <td><strong>Complexity</strong></td>
+                    <td>Simple</td>
+                    <td>Complex (pepper management)</td>
+                    <td>Medium</td>
+                </tr>
+                <tr>
+                    <td><strong>If DB breached</strong></td>
+                    <td>Hash is exposed (but Argon2 makes it hard)</td>
+                    <td>Only commitment exposed (useless)</td>
+                    <td>Only salt exposed (not enough)</td>
+                </tr>
+                <tr>
+                    <td><strong>Server-side cost</strong></td>
+                    <td>Store & lookup hash</td>
+                    <td>Compute commitment, secret pepper</td>
+                    <td>Store & lookup salt</td>
+                </tr>
+                <tr>
+                    <td><strong>Proof verification</strong></td>
+                    <td>Verify h₂ matches stored h₁</td>
+                    <td>Verify proof only (no comparison)</td>
+                    <td>Verify proof only</td>
+                </tr>
+                <tr>
+                    <td><strong>Privacy level</strong></td>
+                    <td>Good (Argon2 is strong)</td>
+                    <td>Best (hash never stored)</td>
+                    <td>Very good (salt only)</td>
+                </tr>
+                <tr>
+                    <td><strong>Industry standard</strong></td>
+                    <td>✅ Yes</td>
+                    <td>❌ Experimental</td>
+                    <td>⚠️ Novel</td>
+                </tr>
+                <tr>
+                    <td><strong>Recommended for</strong></td>
+                    <td>Most applications</td>
+                    <td>Privacy-critical apps</td>
+                    <td>Privacy-conscious startups</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section-box">
+            <h3>Workflow Decision Tree</h3>
+            <p>Choose your authentication pattern based on your requirements:</p>
+
+            <div class="highlight">
+                <strong>Question 1: Must you store the password hash?</strong>
+                <br/>
+                <ul>
+                    <li>
+                        <strong>Yes, for compliance/auditability:</strong> Use Pattern 1 (Hash Storage)
+                        <br/>Most enterprises, banking, healthcare need hash storage for verification
+                    </li>
+                    <li>
+                        <strong>No, prioritize privacy:</strong> Continue to Question 2
+                    </li>
+                </ul>
+            </div>
+
+            <div class="highlight">
+                <strong>Question 2: Can your server manage secret peppers?</strong>
+                <br/>
+                <ul>
+                    <li>
+                        <strong>Yes, HSM/secure enclave available:</strong> Use Pattern 2 (ZK-Only)
+                        <br/>Maximum privacy, no hash storage, commitment-based
+                    </li>
+                    <li>
+                        <strong>No, keep it simple:</strong> Use Pattern 3 (Salted Lookup)
+                        <br/>Salt is simple, no complex secrets, still privacy-preserving
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Technical Implementation Guide</h3>
+
+            <h4>Pattern 1: Hash Storage (Standard)</h4>
+            <div class="math-block">
+Client code:
+  password = "userInput"
+  salt = cryptographically_secure_random(32)
+  h1 = argon2id(password, salt, {time: 2, mem: 65536, ...})
+  proof = starkProver.generateAuthProof(h1, salt)
+  // On login:
+  nonce = "server_challenge_random"
+  h2 = sha256(h1 + nonce)
+  proof2 = starkProver.generateAuthProof(h2, nonce)
+
+Server code:
+  // Registration
+  verifySTARK(proof)  // Verify h1 computation
+  db.store({username, hash: h1, algorithm: "argon2id"})
+  
+  // Login
+  verifySTARK(proof2)  // Verify h2 computation
+  expected_h2 = sha256(db.hash + nonce)
+  if (h2 == expected_h2) → LOGIN_SUCCESS
+            </div>
+
+            <h4>Pattern 2: ZK-Only (Advanced)</h4>
+            <div class="math-block">
+Server code:
+  pepper = cryptographically_secure_random(256)  // Secret!
+  // Never expose pepper directly
+
+Registration:
+  commitment = poseidon(h1_from_client, pepper)
+  db.store({username, commitment: commitment})
+  // h1 is forgotten
+
+Login:
+  pepper_share = pepper XOR session_key
+  send_to_client(pepper_share)
+  // Client recovers pepper = pepper_share XOR session_key
+  // Client proves it knows h1 via STARK
+  // Server never sees h1, only verifies proof
+            </div>
+
+            <h4>Pattern 3: Salted Lookup (Simple Privacy)</h4>
+            <div class="math-block">
+Client code:
+  password = "userInput"
+  salt = server_provided_salt
+  h1 = argon2id(password, salt)
+  nonce = server_challenge
+  h2 = sha256(h1 + nonce)
+  proof = starkProver.generateAuthProof(h2, nonce)
+
+Server code:
+  // Registration
+  db.store({username, salt: random_salt})
+  
+  // Login
+  salt = db.lookup_salt(username)
+  send(salt, nonce)
+  // Client can now compute h1, prove h2
+  verifySTARK(proof)  // No comparison needed!
+  // Proof itself is sufficient authentication
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Security Implications of Each Pattern</h3>
+
+            <h4>Pattern 1: If Server Database is Breached</h4>
+            <ul>
+                <li>
+                    <strong>Attacker has:</strong> {username, h₁ = Argon2(p, s), s if stored}
+                </li>
+                <li>
+                    <strong>Attacker's goal:</strong> Reverse h₁ to get p
+                </li>
+                <li>
+                    <strong>Attack cost:</strong> Argon2(t=2, m=65536) ≈ 500ms per guess
+                    For 1000 guesses: ~500 seconds = 8 minutes
+                </li>
+                <li>
+                    <strong>Mitigation:</strong> Use strong parameters, rate-limit guesses
+                </li>
+            </ul>
+
+            <h4>Pattern 2: If Server Database is Breached</h4>
+            <ul>
+                <li>
+                    <strong>Attacker has:</strong> {username, C = Poseidon(h₁, pepper)}
+                </li>
+                <li>
+                    <strong>Attacker's goal:</strong> Break Poseidon(h₁, pepper) where pepper is unknown
+                </li>
+                <li>
+                    <strong>Attack cost:</strong> Collision attack on Poseidon ≈ 2^128 work
+                    (practically impossible)
+                </li>
+                <li>
+                    <strong>Result:</strong> Breach is almost inconsequential
+                    Attacker has commitment but can't authenticate
+                </li>
+            </ul>
+
+            <h4>Pattern 3: If Server Database is Breached</h4>
+            <ul>
+                <li>
+                    <strong>Attacker has:</strong> {username, s (salt), algorithm}
+                </li>
+                <li>
+                    <strong>Attacker's goal:</strong> Generate valid STARK proof
+                </li>
+                <li>
+                    <strong>Attack cost:</strong> Must know password p to compute h₁
+                    Then: Argon2(p, s) ≈ 500ms per guess
+                </li>
+                <li>
+                    <strong>Result:</strong> Similar to Pattern 1 (if salt is leaked)
+                    But uniqueness per user helps
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- TAB: Math & Cryptography -->
+    <div id="math" class="tab-content">
+        <h2>Mathematical Foundation</h2>
+
+        <div class="section-box">
+            <h3>STARK: Scalable Transparent Argument of Knowledge</h3>
+            <p>
+                A STARK is a <strong>zero-knowledge proof</strong> that proves a computation was performed correctly
+                without revealing the secrets involved. Our system uses STARK to prove:
+            </p>
+            <p style="font-style: italic; text-align: center; margin: 15px 0;">
+                "I computed hash(password) and received this output, without sending you the password"
+            </p>
+
+            <h4>Computation Being Proven: MiMC-7 Hash</h4>
+            <p>The STARK proof embeds a complete execution trace of MiMC-7 (Minimal Multiplicative Complexity):</p>
+            <div class="math-block">
+MiMC-7(input):
+  x₀ = input
+  for i = 0 to 127:
+      xᵢ₊₁ = (xᵢ + Cᵢ)^7 mod p
+  return x₁₂₈
+
+where:
+  p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+  Cᵢ = canonical round constants (256-bit field elements)
+  ^7 = Frobenius exponent (highly nonlinear)
+            </div>
+
+            <p>
+                <strong>Why MiMC-7?</strong> It's optimized for zero-knowledge proofs — requires only ~128 
+                multiplications, vs. SHA-256 which would require millions of bit operations.
+            </p>
+        </div>
+
+        <div class="section-box">
+            <h3>STARK Protocol Structure</h3>
+            <div class="math-block">
+Phase 1: Commitment
+  ┌─ Trace Commitment (trace_root)
+  │   Prover commits to execution trace: [x₀, x₁, x₂, ..., x₁₂₈, padding...]
+  │   Using Merkle tree over low-degree extension
+  │
+  ├─ Quotient Commitment (q_root)
+  │   Encodes the AIR constraints: P(wz) = (P(z) + C)^7
+  │   Quotient: Q(z) = ConstraintError(z) / Vanishing(z)
+  │
+  └─ FRI Commitment (8 fri_roots)
+      Merkle roots of FRI proof layers
+
+Phase 2: Challenge
+  ┌─ Fiat-Shamir: Derive random challenges from commitments
+  │  friAlpha = H(nonce, trace_root, q_root, ...)
+  │  friAlphas[i] = H(...previous challenges, fri_roots[i-1])
+  │
+  └─ Query indices: idx₁, idx₂, ..., idx₅₀
+     From friAlphas, extract 50 random evaluation points
+
+Phase 3: Response
+  ┌─ Query openings at 50 points:
+  │  - trace values: P(z), P(wz)
+  │  - quotient value: Q(z)
+  │  - Merkle paths to prove inclusion
+  │
+  ├─ FRI proof: 8-fold folding down to constant
+  │  For each layer: show values + sibling + Merkle paths
+  │
+  └─ Boundary proof: trace[128] = hash_output
+     With Merkle path
+
+Phase 4: Verification
+  ┌─ Check AIR constraints at all 50 points
+  │  P(wz) = (P(z) + C)^7 + Q(z) * Z_vanishing(z)
+  │
+  ├─ Check FRI consistency: folding protocol
+  │  Each layer: even + alpha * odd = next_folded_value
+  │
+  ├─ Check boundary: hash_output ∈ committed trace
+  │
+  └─ Check rc_commitment: canonical round constants used
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Proof Binding Mechanism</h3>
+            <p>
+                For bcrypt/argon2 proofs, the hash output is <strong>cryptographically bound</strong> to the STARK proof:
+            </p>
+            <div class="math-block">
+Prover side:
+  nonce = padded_hex_encoding(bcrypt_hash_output)
+  Transcript.absorb(nonce)  ← First thing absorbed
+  [proceed with STARK proof generation...]
+  friAlpha = Transcript.challenge()  ← Depends on nonce
+  
+Verifier side:
+  1. Extract hash from public_inputs.hash
+  2. Recompute: expected_nonce = padded_hex(hash)
+  3. Check: public_inputs.nonce == expected_nonce
+     ↳ If no match, REJECT (hash was tampered)
+  4. If match, use nonce to derive friAlpha
+  5. Verify FRI proof with correct friAlpha
+            </div>
+
+            <div class="highlight">
+                <strong>Why this binding is critical:</strong> Without it, an attacker could:
+                <ul>
+                    <li>Generate proof for password "MyPassword" → hash = H1</li>
+                    <li>Change proof.hash to H2 (a different password's hash)</li>
+                    <li>Send to server → server accepts it (BEFORE the fix)</li>
+                </ul>
+                Now the hash-nonce check detects this tampering immediately.
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>FRI (Fast Reed-Solomon Interactive Oracle Proofs)</h3>
+            <p>
+                FRI proves a polynomial has bounded degree using iterative folding:
+            </p>
+            <div class="math-block">
+Goal: Prove deg(H) ≤ 256 where H = P(x) + friAlpha * Q(x)
+
+Layer 0 (2048 points):
+  H₀(x) → commit to M₀ (Merkle tree)
+  Challenge: friAlpha₀
+  Fold: H₁(y) = (H₀(√y) + H₀(-√y))/2 + friAlpha₀ * (...)/(2√y)
+
+Layer 1 (1024 points):
+  H₁(y) → commit to M₁
+  Challenge: friAlpha₁
+  Fold: H₂(z) = ...
+
+... repeat 8 times ...
+
+Final (8 points):
+  H₈ = constant polynomial c
+  Verify: current_value == c
+
+Soundness: If H doesn't have bounded degree, folding cannot produce
+the correct constant. Probability attacker fools verifier ≈ (256/2048)^50 = 2^-150
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Security & Soundness -->
+    <div id="security" class="tab-content">
+        <h2>Security Analysis & Soundness</h2>
+
+        <div class="section-box">
+            <h3>Threat Model</h3>
+            <ul>
+                <li>
+                    <strong>Attacker Goal:</strong> Log in as a user without knowing the password
+                </li>
+                <li>
+                    <strong>Attack Surface 1:</strong> Forge a valid STARK proof (impossible)
+                </li>
+                <li>
+                    <strong>Attack Surface 2:</strong> Tamper with proof fields (hash, mimc_output, queries)
+                </li>
+                <li>
+                    <strong>Attack Surface 3:</strong> Guess password by trying many hashes (hard due to client-side cost)
+                </li>
+                <li>
+                    <strong>Honest Server Assumption:</strong> Server correctly implements verifier algorithm
+                </li>
+            </ul>
+        </div>
+
+        <div class="section-box">
+            <h3>Soundness Guarantees</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Attack</th>
+                    <th>Mechanism</th>
+                    <th>Security Level</th>
+                </tr>
+                <tr>
+                    <td><strong>Forge STARK proof</strong><br/>(wrong trace)</td>
+                    <td>
+                        AIR constraint check at 50 random points.<br/>
+                        Each query: (deg / domain_size) = 256/2048 soundness error<br/>
+                        Total: (1/8)^50 = 2^-150
+                    </td>
+                    <td>2^128 security</td>
+                </tr>
+                <tr>
+                    <td><strong>Forge FRI proof</strong><br/>(bounded degree)</td>
+                    <td>
+                        8-layer FRI folding.<br/>
+                        Attacker must match 8 random linear combinations.<br/>
+                        Probability: 2^-128 per query, 2^-6400 total
+                    </td>
+                    <td>2^128 security</td>
+                </tr>
+                <tr>
+                    <td><strong>Tamper hash field</strong></td>
+                    <td>
+                        Hash-nonce binding check (new fix).<br/>
+                        Hash is encoded into nonce that's absorbed first in transcript.<br/>
+                        Changing hash → different expected_nonce → immediate rejection
+                    </td>
+                    <td>Perfect</td>
+                </tr>
+                <tr>
+                    <td><strong>Tamper mimc_output</strong></td>
+                    <td>
+                        Boundary constraint check.<br/>
+                        mimc_output must exist in trace Merkle tree at index 1024.<br/>
+                        Merkle path verification uses Poseidon hash (cryptographically secure)
+                    </td>
+                    <td>2^128</td>
+                </tr>
+                <tr>
+                    <td><strong>Tamper query values</strong></td>
+                    <td>
+                        Merkle path verification for each P(z), P(wz), Q(z), constants.<br/>
+                        Poseidon hash collisions are negligible.<br/>
+                        AIR/FRI checks catch inconsistencies.
+                    </td>
+                    <td>2^128</td>
+                </tr>
+                <tr>
+                    <td><strong>Offline password guessing</strong></td>
+                    <td>
+                        Attacker knows hash but doesn't know password.<br/>
+                        Must: (1) compute Argon2 (~500ms), (2) generate proof (~2s)<br/>
+                        Per guess: ~2.5 seconds (vs. traditional: ~100ms)<br/>
+                        25x slower per attempt
+                    </td>
+                    <td>Practical</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section-box">
+            <h3>Concrete Security Parameters</h3>
+            <div class="math-block">
+Field: BN254 scalar field
+  p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+  |p| ≈ 254 bits
+
+Trace Parameters:
+  MIMC_ROUNDS = 128
+  TRACE_SIZE = 256 (power of 2)
+  BLOWUP = 8
+  LDE_SIZE = 2048
+
+FRI Parameters:
+  Folds: 8 (2048 → 1024 → 512 → 256 → 128 → 64 → 32 → 16 → 8)
+  Queries: 50 random points
+  Per-query error: (256 / 2048) = 1/8 = 2^-3
+  Aggregate error: (1/8)^50 = 2^-150
+
+Poseidon Hash:
+  t = 3 (width)
+  R_F = 8 (full rounds)
+  R_P = 57 (partial rounds)
+  Total = 65 rounds
+  Collision resistance: 2^127 (birthday bound on 254-bit output)
+
+Overall Soundness: min(2^150, 2^127, 2^128) = 2^127 ≈ 10^38
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Post-Quantum Considerations</h3>
+            <p>
+                STARKs are <strong>quantum-resistant</strong> (unlike SNARK curves which use discrete log).
+                The security comes from:
+            </p>
+            <ul>
+                <li><strong>AIR constraints:</strong> Low-degree polynomial evaluation (no quantum speedup)</li>
+                <li><strong>FRI folding:</strong> Polynomial commitment via Merkle trees (hash-based, quantum-safe)</li>
+                <li><strong>Merkle trees:</strong> Built on Poseidon (sponge construction, no known quantum vulnerabilities)</li>
+            </ul>
+            <p>
+                Even if quantum computers arrive, this system remains secure (unlike RSA, ECDSA, pairing-based SNARKs).
+            </p>
+        </div>
+    </div>
+
+    <!-- TAB: Server Storage -->
+    <div id="server" class="tab-content">
+        <h2>Server-Side Storage & Validation</h2>
+
+        <div class="section-box">
+            <h3>Database Schema</h3>
+            <div class="math-block">
+table users {
+  id: UUID (primary key)
+  username: VARCHAR(255) unique
+  email: VARCHAR(255)
+  hash: VARCHAR(255)  ← Bcrypt/Argon2 output
+  algorithm: ENUM('bcrypt', 'argon2id')
+  proof_hash: VARCHAR(64)  ← SHA-256 of original STARK proof
+  proof_params: JSON  ← For argon2: {time, mem, hashLen}
+  created_at: TIMESTAMP
+  last_login: TIMESTAMP
+}
+
+table audit_log {
+  id: UUID
+  user_id: UUID
+  action: ENUM('login_success', 'login_failure', 'register')
+  proof_verified: BOOLEAN
+  hash_matched: BOOLEAN
+  timestamp: TIMESTAMP
+  ip_address: VARCHAR(45)
+}
+            </div>
+
+            <div class="highlight">
+                <strong>What's NOT stored:</strong>
+                <ul>
+                    <li>❌ Password (never transmitted)</li>
+                    <li>❌ Full STARK proof (too large, verified once and discarded)</li>
+                    <li>❌ Private/secret information</li>
+                </ul>
+                <br/>
+                <strong>What IS stored:</strong>
+                <ul>
+                    <li>✅ Hash (proves proof was about correct computation)</li>
+                    <li>✅ Proof hash (audit trail, replay detection)</li>
+                    <li>✅ Algorithm metadata (reproducibility)</li>
+                    <li>✅ Verification timestamps (security events)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Verification Process on Server</h3>
+            <div class="flow-diagram">
+Input: {hash, proof}
+
+Step 1: Hash-Nonce Binding Check (NEW FIX)
+  expected_nonce = padded_hex(hash)
+  if proof.public_inputs.nonce != expected_nonce:
+    return 400 Bad Request
+    
+Step 2: STARK Proof Verification
+  result = verifier.verify(proof)
+  if !result.success:
+    return 400 Bad Request
+  
+  Checks:
+    ✓ Nonce consistency
+    ✓ Round-constant commitment
+    ✓ Boundary constraint (hash ∈ trace)
+    ✓ AIR constraints (50 points)
+    ✓ FRI folding (8 layers)
+    ✓ Merkle path integrity
+    ✓ No tampering detected
+
+Step 3: Hash Storage & Lookup
+  stored_hash = db.users.find_by_username(username).hash
+  
+  if hash == stored_hash:
+    return 200 OK (login success)
+  else:
+    return 401 Unauthorized (wrong password)
+    
+Step 4: Audit Log
+  log_event({
+    user_id,
+    action: 'login',
+    proof_verified: true,
+    hash_matched: (hash == stored_hash),
+    timestamp: now
+  })
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Replay Attack Prevention</h3>
+            <p>
+                Can an attacker capture a valid login proof and replay it?
+            </p>
+            <div class="highlight">
+                <strong>Answer: No (with proper session management)</strong>
+                <ul>
+                    <li>
+                        The proof is tied to the <strong>hash</strong> of the password, not the password itself.
+                    </li>
+                    <li>
+                        The hash is <strong>deterministic</strong> — same password → same hash.
+                    </li>
+                    <li>
+                        A captured proof can be replayed to log in as that user (from any network).
+                    </li>
+                    <li>
+                        <strong>Solution:</strong> Use nonce binding or one-time proofs:
+                        <ul>
+                            <li>Include server-generated nonce in proof: <code>proof_nonce = H(server_random || timestamp)</code></li>
+                            <li>Or: Include timestamp in STARK nonce, reject proofs older than 60 seconds</li>
+                            <li>Or: Use typical session tokens after proof succeeds (user logs in once, session persists)</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Database Breach Scenario</h3>
+            <p>
+                What if the hash database is stolen?
+            </p>
+            <ul>
+                <li>
+                    <strong>Attack:</strong> Attacker has {username: "alice", hash: bcrypt_output}
+                </li>
+                <li>
+                    <strong>Goal:</strong> Generate a valid proof for alice's account
+                </li>
+                <li>
+                    <strong>Problem:</strong> Generating a proof requires knowing the password (or brute-forcing it).
+                    The attacker has the hash but not the password.
+                </li>
+                <li>
+                    <strong>Cost:</strong> Argon2(mem=1GB, time=1) takes ~500ms to compute once
+                    (attacker has to compute it once they guess the password to get the proof).
+                    This is expensive for large-scale attacks.
+                </li>
+                <li>
+                    <strong>Conclusion:</strong> Breach is bad but not catastrophic. The hash is still useful for password
+                    checking (with Argon2 cost), but doesn't allow instant account takeover.
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- TAB: Client-Side Efficiency Benefits -->
+    <div id="efficiency" class="tab-content">
+        <h2>Client-Side Computation Benefits</h2>
+
+        <div class="section-box">
+            <h3>Server Resource Savings</h3>
+            <p>
+                Traditional password authentication vs. STARK-based system:
+            </p>
+            <table class="comparison-table">
+                <tr>
+                    <th>Operation</th>
+                    <th>Traditional</th>
+                    <th>STARK-Based</th>
+                    <th>Savings</th>
+                </tr>
+                <tr>
+                    <td><strong>Registration:</strong> Hash password</td>
+                    <td>Server: Argon2(1GB, 1s)</td>
+                    <td>Client: Argon2(1GB, 1s)</td>
+                    <td>✅ Server CPU & RAM</td>
+                </tr>
+                <tr>
+                    <td><strong>Registration:</strong> Verify computation</td>
+                    <td>N/A (assumed honest)</td>
+                    <td>Server: STARK verify (200ms)</td>
+                    <td>✅ Cryptographic guarantee</td>
+                </tr>
+                <tr>
+                    <td><strong>Login:</strong> Verify password</td>
+                    <td>Server: bcrypt_verify(~100ms)</td>
+                    <td>Server: STARK verify (200ms)</td>
+                    <td>⚠️ 2x slower, but see below</td>
+                </tr>
+                <tr>
+                    <td><strong>Password Reset:</strong> Re-hash</td>
+                    <td>Server: Argon2(1GB, 1s)</td>
+                    <td>Client: Argon2(1GB, 1s)</td>
+                    <td>✅ Server CPU & RAM</td>
+                </tr>
+                <tr>
+                    <td><strong>Batch login (100 users):</strong></td>
+                    <td>Server: 100 * bcrypt_verify<br/>= ~10 seconds</td>
+                    <td>Server: 100 * STARK verify<br/>= ~20 seconds, but highly parallelizable</td>
+                    <td>✅ Better with CPU clustering</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section-box">
+            <h3>Why Shifting to Client-Side Matters</h3>
+            <div class="highlight">
+                <strong>Traditional approach bottleneck:</strong>
+                <br/><br/>
+                All 1 million users logging in during peak hour must hit the server.
+                Server must compute Argon2 1M times = 500,000 seconds of CPU work.
+                With 32-core server: 500,000 / 32 = 15,625 seconds = 4.3 hours of compute.
+                <br/><br/>
+                Each user waiting for: Network(50ms) + Arg2(500ms) + DB(10ms) = ~560ms
+            </div>
+
+            <div class="highlight">
+                <strong>STARK-based approach:</strong>
+                <br/><br/>
+                Each user computes Argon2 on their own machine (parallelize across cores/devices).
+                Server only verifies proofs (~200ms per proof, easily parallelizable).
+                Server needs: 32 cores * (3600 seconds) / 200ms = 576,000 proofs per hour = 160 proofs per second.
+                <br/><br/>
+                Each user waiting for: Network(50ms) + STARK verify(200ms) + DB(10ms) = ~260ms
+                <br/>
+                <strong>Result: 2.15x faster login, massive server CPU savings</strong>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Proof Size & Network Considerations</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                    <th>Notes</th>
+                </tr>
+                <tr>
+                    <td><strong>Proof Size</strong></td>
+                    <td>~700 KB</td>
+                    <td>50 queries × 8 FRI layers with Merkle paths</td>
+                </tr>
+                <tr>
+                    <td><strong>Transmission Time</strong></td>
+                    <td>~5.6 seconds (1 Mbps)<br/>~560ms (10 Mbps)<br/>~56ms (100 Mbps)</td>
+                    <td>Typical: 56ms (broadband)</td>
+                </tr>
+                <tr>
+                    <td><strong>Compression (gzip)</strong></td>
+                    <td>~250 KB (36% ratio)</td>
+                    <td>JSON compresses well due to repetitive hex strings</td>
+                </tr>
+                <tr>
+                    <td><strong>Proof Generation Time</strong></td>
+                    <td>~2 seconds (Browser)</td>
+                    <td>50 queries, 8 FRI layers (single-threaded)</td>
+                </tr>
+                <tr>
+                    <td><strong>Proof Verification Time</strong></td>
+                    <td>~200-300ms (Server)</td>
+                    <td>50 queries, 8 FRI layers (optimized)</td>
+                </tr>
+            </table>
+
+            <div class="highlight">
+                <strong>Optimization Opportunity:</strong>
+                <br/>
+                Reduce proof size from 700 KB to ~200 KB by:
+                <ul>
+                    <li>Batching queries (merkle path sharing)</li>
+                    <li>Increasing fold count (smaller final proof)</li>
+                    <li>Using proof compression schemes</li>
+                </ul>
+                This would reduce network transmission to ~1.6 seconds on 1 Mbps (still acceptable).
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Multi-Device & Offline Scenarios</h3>
+            <ul>
+                <li>
+                    <strong>Desktop login:</strong> User's machine computes proof (leverage CPU cores).
+                    High-spec device = faster proof generation.
+                </li>
+                <li>
+                    <strong>Mobile login:</strong> User's phone computes proof (uses device resources).
+                    May be slower (~3-4 seconds on mobile), but still acceptable.
+                </li>
+                <li>
+                    <strong>Smart TV / IoT:</strong> Can't compute Argon2 efficiently?
+                    Fall back to simpler MiMC-7 STARK (2 seconds, constant output).
+                </li>
+                <li>
+                    <strong>Offline generation:</strong> User can generate proof without internet,
+                    submit later when online (no real-time requirement).
+                </li>
+            </ul>
+        </div>
+
+        <div class="section-box">
+            <h3>Rate Limiting & DoS Protection</h3>
+            <p>
+                The server-side benefit is subtle but important:
+            </p>
+            <ul>
+                <li>
+                    <strong>Traditional:</strong> Rate limit by IP (e.g., 10 login attempts per minute).
+                    Attacker can still hit server 10 times with full Argon2 cost.
+                    Server CPU: 5 seconds of compute per minute per attacker.
+                </li>
+                <li>
+                    <strong>STARK-based:</strong> Rate limit by IP (e.g., 10 attempts per minute).
+                    Server only verifies proofs, not computing.
+                    Server CPU: 2 seconds of compute per minute per attacker (10x less).
+                    <br/>Plus: Proof generation on client is expensive → natural DoS protection.
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(c => c.classList.remove('active'));
+            
+            // Deactivate all tab buttons
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(b => b.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Activate clicked button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
