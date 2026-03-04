@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZK-Auth Pattern 2 — Login Demo</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Argon2 Browser (WASM) — same CDN as index.html -->
+    <script src="https://cdn.jsdelivr.net/npm/argon2-browser/dist/argon2-bundled.min.js"></script>
+
+    <!-- ZK Stack (served from our Express static routes) -->
+    <script src="/zk-hash/common.js"></script>
+    <script src="/zk-hash/stark-math.js"></script>
+    <script src="/zk-hash/prover.js"></script>
+
+    <style>
+        /* ── Page overrides ─────────────────────────────────────────────────── */
+        body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        .p2-card {
+            max-width: 560px;
+            margin: 48px auto;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 36px 40px;
+        }
+
+        .p2-card h1 {
+            margin: 0 0 6px;
+            font-size: 1.45rem;
+            color: #58a6ff;
+            letter-spacing: -.3px;
+        }
+
+        .p2-card .subtitle {
+            font-size: 0.82rem;
+            color: #8b949e;
+            margin-bottom: 28px;
+            line-height: 1.55;
+        }
+
+        /* Tab switcher */
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 26px;
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 9px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #8b949e;
+            font-size: 0.88rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+
+        .tab-btn.active {
+            background: #21262d;
+            color: #e6edf3;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Form fields */
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block;
+            font-size: 0.82rem;
+            color: #8b949e;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .field input {
+            width: 100%;
+            padding: 9px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            transition: border-color .15s;
+        }
+        .field input:focus {
+            outline: none;
+            border-color: #388bfd;
+        }
+
+        /* Advanced / Argon2 params toggle */
+        .adv-toggle {
+            font-size: 0.78rem;
+            color: #58a6ff;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-bottom: 14px;
+            display: inline-block;
+        }
+        .adv-params { display: none; }
+        .adv-params.open { display: block; }
+
+        /* Buttons */
+        .btn-primary {
+            width: 100%;
+            padding: 11px;
+            background: #238636;
+            border: 1px solid #2ea043;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .btn-primary:hover:not(:disabled) { background: #2ea043; }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* Status box */
+        .status-box {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            font-size: 0.84rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            display: none;
+        }
+        .status-box.info  { background: #161b22; border: 1px solid #388bfd; color: #79c0ff; }
+        .status-box.ok    { background: #0f2a18; border: 1px solid #2ea043; color: #3fb950; }
+        .status-box.error { background: #2b1010; border: 1px solid #f85149; color: #f85149; }
+
+        /* Progress steps */
+        .steps { list-style: none; padding: 0; margin: 12px 0 0; }
+        .steps li {
+            padding: 5px 0 5px 22px;
+            font-size: 0.82rem;
+            color: #8b949e;
+            position: relative;
+        }
+        .steps li::before {
+            content: '○';
+            position: absolute;
+            left: 0;
+            color: #30363d;
+        }
+        .steps li.done::before  { content: '✓'; color: #3fb950; }
+        .steps li.active::before { content: '⟳'; color: #79c0ff; }
+        .steps li.error::before { content: '✗'; color: #f85149; }
+        .steps li.done  { color: #c9d1d9; }
+        .steps li.active { color: #79c0ff; }
+        .steps li.error { color: #f85149; }
+
+        /* Back link */
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 22px;
+            font-size: 0.82rem;
+            color: #8b949e;
+        }
+        .back-link a { color: #58a6ff; text-decoration: none; }
+
+        /* Security info banner */
+        .security-note {
+            margin-top: 24px;
+            padding: 12px 14px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            color: #8b949e;
+            line-height: 1.6;
+        }
+        .security-note strong { color: #c9d1d9; }
+    </style>
+</head>
+<body>
+
+<div class="p2-card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+        <h1>🔐 ZK-Auth Pattern 2</h1>
+        <a href="architecture.html" style="font-size:0.78rem; color:#58a6ff; text-decoration:none; margin-top:6px;">Docs →</a>
+    </div>
+    <p class="subtitle">
+        Zero-Knowledge authentication — <strong>no password ever leaves your browser</strong>.<br>
+        Argon2id runs client-side; a STARK proof is sent to the server. The pepper stays
+        exclusively on the server — the client never computes or sees the credential commitment.
+    </p>
+
+    <!-- Tab switcher -->
+    <div class="tab-bar" role="tablist">
+        <button class="tab-btn active" id="tab-register" onclick="switchTab('register')">Register</button>
+        <button class="tab-btn"        id="tab-login"    onclick="switchTab('login')">Login</button>
+    </div>
+
+    <!-- ── REGISTER TAB ──────────────────────────────────────────────────────── -->
+    <div id="pane-register" class="tab-content active">
+        <div class="field">
+            <label for="reg-username">Username</label>
+            <input id="reg-username" type="text" placeholder="alice" autocomplete="username"
+                   maxlength="64" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="reg-password">Password</label>
+            <input id="reg-password" type="password" placeholder="••••••••" autocomplete="new-password">
+        </div>
+
+        <span class="adv-toggle" onclick="toggleAdv('reg')">⚙ Argon2id parameters</span>
+        <div class="adv-params" id="adv-reg">
+            <div class="field">
+                <label for="reg-time">Time cost (iterations, min 3)</label>
+                <input id="reg-time" type="number" value="3" min="3">
+            </div>
+            <div class="field">
+                <label for="reg-mem">Memory (KB, min 65536)</label>
+                <input id="reg-mem" type="number" value="65536" min="65536">
+            </div>
+            <div class="field">
+                <label for="reg-len">Hash length (bytes)</label>
+                <input id="reg-len" type="number" value="32" min="16">
+            </div>
+        </div>
+
+        <button class="btn-primary" id="btn-register" onclick="doRegister()">
+            Register with ZK Proof
+        </button>
+
+        <div class="status-box" id="status-register"></div>
+    </div>
+
+    <!-- ── LOGIN TAB ──────────────────────────────────────────────────────────── -->
+    <div id="pane-login" class="tab-content">
+        <div class="field">
+            <label for="login-username">Username</label>
+            <input id="login-username" type="text" placeholder="alice" autocomplete="username"
+                   maxlength="64" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button class="btn-primary" id="btn-login" onclick="doLogin()">
+            Login with ZK Proof
+        </button>
+
+        <div class="status-box" id="status-login"></div>
+    </div>
+
+    <div class="security-note">
+        <strong>Pattern 2 security guarantees:</strong><br>
+        • Your password never leaves the browser.<br>
+        • The server stores only <code>C = Poseidon(h₁, serverPepper)</code> — not the hash.<br>
+        • The server pepper is computed <em>exclusively server-side</em> after STARK verification.<br>
+        • A STARK proof attests that Argon2id was run with the correct parameters.<br>
+        • PoW grinding (2²⁴) and 35 FRI queries target ≥ 2¹²⁸ soundness.
+    </div>
+
+    <span class="back-link"><a href="/">← Back to demo</a> · <a href="architecture.html">Architecture docs</a></span>
+</div>
+
+<script>
+'use strict';
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('pane-' + name).classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+function toggleAdv(prefix) {
+    const el = document.getElementById('adv-' + prefix);
+    el.classList.toggle('open');
+}
+
+// ── Status display helpers ────────────────────────────────────────────────────
+function setStatus(id, kind, html) {
+    const box = document.getElementById(id);
+    box.className = 'status-box ' + kind;
+    box.innerHTML = html;
+    box.style.display = 'block';
+}
+
+function makeSteps(steps) {
+    return '<ul class="steps">' + steps.map(s =>
+        `<li id="step-${s.id}" class="${s.cls || ''}">${s.label}</li>`
+    ).join('') + '</ul>';
+}
+
+function stepState(id, cls) {
+    const el = document.getElementById('step-' + id);
+    if (el) el.className = cls;
+}
+
+// ── Server nonce fetch ────────────────────────────────────────────────────────
+async function fetchNonce() {
+    const r = await fetch('/api/nonce');
+    if (!r.ok) throw new Error('Could not fetch server nonce');
+    const data = await r.json();
+    return data.nonce;
+}
+
+// ── REGISTER ──────────────────────────────────────────────────────────────────
+async function doRegister() {
+    const username = document.getElementById('reg-username').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const time     = parseInt(document.getElementById('reg-time').value, 10) || 3;
+    const mem      = parseInt(document.getElementById('reg-mem').value, 10) || 65536;
+    const hashLen  = parseInt(document.getElementById('reg-len').value, 10) || 32;
+
+    if (!username) return setStatus('status-register', 'error', '⚠ Username is required.');
+    if (!password) return setStatus('status-register', 'error', '⚠ Password is required.');
+    if (time < 3)   return setStatus('status-register', 'error', '⚠ Time cost must be ≥ 3 (OWASP minimum).');
+    if (mem < 65536) return setStatus('status-register', 'error', '⚠ Memory must be ≥ 65536 KB (OWASP minimum).');
+
+    const btn = document.getElementById('btn-register');
+    btn.disabled = true;
+
+    setStatus('status-register', 'info',
+        '<strong>Registering…</strong>' +
+        makeSteps([
+            { id: 'rn',   label: 'Fetch server challenge nonce' },
+            { id: 'ra',   label: 'Run Argon2id in browser (memory-hard KDF)' },
+            { id: 'rp',   label: 'Generate STARK proof (~15–30 s)' },
+            { id: 'rs',   label: 'Send proof to server for verification' },
+            { id: 'rdone',label: 'Done' }
+        ])
+    );
+
+    try {
+        // Step 1 — server challenge
+        stepState('rn', 'active');
+        const serverChallenge = await fetchNonce();
+        stepState('rn', 'done');
+
+        // Step 2 — Argon2id (browser WASM)
+        stepState('ra', 'active');
+        const argon2Salt = generateSalt();
+        const params = { time, mem, hashLen, salt: argon2Salt };
+
+        // Step 3 — STARK proof (Pattern 2: pepper NOT computed client-side)
+        stepState('ra', 'done');
+        stepState('rp', 'active');
+        const prover   = new ZKProver(null, window.argon2);
+        // Use 'argon2id-p2' which sets options.pattern2=true — no pepper_commit in proof
+        const proof    = await prover.generateProof(password, 'argon2id-p2', params, serverChallenge);
+        stepState('rp', 'done');
+
+        // Step 4 — send to server
+        stepState('rs', 'active');
+        const resp = await fetch('/api/p2/register', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ proof, username })
+        });
+        const data = await resp.json();
+        stepState('rs', 'done');
+
+        if (data.success) {
+            stepState('rdone', 'done');
+            setStatus('status-register', 'ok',
+                `<strong>✓ Registered successfully!</strong>\n` +
+                `Username: ${username}\n` +
+                `The server computed and stored <code>C = Poseidon(h₁, pepper)</code> — your password never left the browser.\n\n` +
+                `You can now <a href="#" onclick="switchTab('login');return false;" style="color:#58a6ff;">log in →</a>`
+            );
+        } else {
+            stepState('rdone', 'error');
+            setStatus('status-register', 'error', `<strong>✗ Registration failed</strong>\n${data.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error('[register]', e);
+        setStatus('status-register', 'error', `<strong>✗ Error</strong>\n${e.message}`);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!username) return setStatus('status-login', 'error', '⚠ Username is required.');
+    if (!password) return setStatus('status-login', 'error', '⚠ Password is required.');
+
+    const btn = document.getElementById('btn-login');
+    btn.disabled = true;
+
+    setStatus('status-login', 'info',
+        '<strong>Authenticating…</strong>' +
+        makeSteps([
+            { id: 'ln',   label: 'Fetch server challenge nonce' },
+            { id: 'ls',   label: 'Retrieve Argon2id salt from server' },
+            { id: 'la',   label: 'Re-run Argon2id in browser' },
+            { id: 'lp',   label: 'Generate STARK proof (~15–30 s)' },
+            { id: 'll',   label: 'Send proof to server for verification' },
+            { id: 'ldone',label: 'Done' }
+        ])
+    );
+
+    try {
+        // Step 1 — server challenge
+        stepState('ln', 'active');
+        const serverChallenge = await fetchNonce();
+        stepState('ln', 'done');
+
+        // Step 2 — retrieve salt (the server's /api/p2/salt/:username endpoint returns
+        //          the Argon2id salt and params stored at registration — safe to expose)
+        stepState('ls', 'active');
+        const saltResp = await fetch('/api/p2/salt/' + encodeURIComponent(username));
+        if (!saltResp.ok) {
+            const errData = await saltResp.json().catch(() => ({}));
+            throw new Error(errData.error || 'User not found or server error');
+        }
+        const saltData = await saltResp.json();
+        if (!saltData.success) throw new Error(saltData.error || 'Could not retrieve salt');
+        stepState('ls', 'done');
+
+        const { salt, argon2_params } = saltData;
+        const params = { ...argon2_params, salt };
+
+        // Step 3 — re-run Argon2id with the same params as registration
+        stepState('la', 'active');
+        // (Argon2id is deterministic — same password + salt + params = same h₁)
+        stepState('la', 'done');
+
+        // Step 4 — generate STARK proof (Pattern 2)
+        stepState('lp', 'active');
+        const prover = new ZKProver(null, window.argon2);
+        const proof  = await prover.generateProof(password, 'argon2id-p2', params, serverChallenge);
+        stepState('lp', 'done');
+
+        // Step 5 — authenticate
+        stepState('ll', 'active');
+        const resp = await fetch('/api/p2/login', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ proof, username })
+        });
+        const data = await resp.json();
+        stepState('ll', 'done');
+
+        if (data.success) {
+            stepState('ldone', 'done');
+            setStatus('status-login', 'ok',
+                `<strong>✓ Login successful!</strong>\n${data.message}\n\n` +
+                `The server confirmed your identity by verifying:\n` +
+                `  1. STARK proof (AIR + FRI + PoW)\n` +
+                `  2. Poseidon(h₁, serverPepper) === stored commitment\n` +
+                `Your password was never transmitted or stored.`
+            );
+        } else {
+            stepState('ldone', 'error');
+            setStatus('status-login', 'error',
+                `<strong>✗ Login failed</strong>\n${data.error || 'Invalid credentials'}`
+            );
+        }
+    } catch (e) {
+        console.error('[login]', e);
+        setStatus('status-login', 'error', `<strong>✗ Error</strong>\n${e.message}`);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Salt generation ───────────────────────────────────────────────────────────
+// Generate a cryptographically random 16-byte hex salt for Argon2id.
+// Each user gets a unique salt so identical passwords produce different h₁ values.
+function generateSalt() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+</script>
+</body>
+</html>
