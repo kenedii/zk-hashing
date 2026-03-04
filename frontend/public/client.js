@@ -18,6 +18,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statusBox = document.getElementById('verify-status');
     const loader = document.getElementById('loader');
 
+    // ── Issue #2: Fetch a server-issued challenge before each proof ────────────
+    // The server pre-stores the 256-bit hex challenge so it can verify later that
+    // the proof's server_challenge was genuinely issued, not fabricated by the client.
+    async function fetchServerChallenge() {
+        const resp = await fetch('/api/nonce');
+        if (!resp.ok) throw new Error(`Failed to fetch server challenge: ${resp.status}`);
+        const data = await resp.json();
+        if (!data.nonce) throw new Error("Server did not return a challenge nonce");
+        return data.nonce; // 256-bit hex string
+    }
+
     // Toggle Params UI
     algoSelect.addEventListener('change', () => {
         // Hide all first
@@ -49,6 +60,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         generateBtn.innerText = "Hashing & Generating Proof...";
 
         try {
+            // Issue #2: fetch a server-issued challenge before generating any proof.
+            // This must happen before the proof so the challenge is absorbed into the
+            // STARK transcript as step 0, binding the proof to this session.
+            const serverChallenge = await fetchServerChallenge();
+
             if (algo === 'bcrypt') {
                 const val = document.getElementById('bcrypt-cost').value;
                 params.cost = parseInt(val) || 10;
@@ -61,8 +77,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const nonce = document.getElementById('auth-nonce').value;
                 console.log("Generating Zero-Knowledge Auth Proof...");
                 
-                // Use the high-level Auth method which hashes the password first
-                const proof = await prover.generateAuthProof(password, nonce);
+                // Use the MiMC-STARK path which properly derives a hashWitness
+                // from the password bytes via hashBytesToWitness.
+                const proof = await prover.generateProof(password, 'mimc-stark', {}, serverChallenge);
+                // Keep the user-supplied challenge visible in the demo UI.
+                if (proof.public_inputs) proof.public_inputs.demo_challenge = nonce;
                 
                 proofOutput.value = JSON.stringify(proof, null, 4);
                 statusBox.style.display = 'none';
@@ -71,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             console.log(`Starting ${algo} hashing...`);
-            const proof = await prover.generateProof(password, algo, params);
+            const proof = await prover.generateProof(password, algo, params, serverChallenge);
             
             // Format for display
             proofOutput.value = JSON.stringify(proof, null, 4);
