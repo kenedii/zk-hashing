@@ -1,2031 +1,1687 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Architecture & Security — ZK-STARK Hash Proof</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        .tab-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #30363d;
-            flex-wrap: wrap;
-        }
-        .tab-button {
-            background: none;
-            border: none;
-            color: #8b949e;
-            padding: 10px 15px;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
-            font-weight: 500;
-        }
-        .tab-button:hover {
-            color: #c9d1d9;
-        }
-        .tab-button.active {
-            color: #58a6ff;
-            border-bottom-color: #58a6ff;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .section-box {
-            background-color: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        .math-block {
-            background-color: #010409;
-            border-left: 3px solid #58a6ff;
-            padding: 15px;
-            margin: 10px 0;
-            font-family: 'Courier New', monospace;
-            overflow-x: auto;
-            font-size: 0.9em;
-            line-height: 1.6;
-        }
-        .flow-diagram {
-            background-color: #010409;
-            border: 1px dashed #30363d;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-            white-space: pre;
-            overflow-x: auto;
-            font-size: 0.85em;
-            line-height: 1.4;
-        }
-        h3 {
-            color: #79c0ff;
-            margin-top: 20px;
-        }
-        .highlight {
-            background-color: rgba(88, 166, 255, 0.1);
-            border-left: 3px solid #58a6ff;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .comparison-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-            background-color: #0d1117;
-        }
-        .comparison-table th,
-        .comparison-table td {
-            border: 1px solid #30363d;
-            padding: 10px;
-            text-align: left;
-        }
-        .comparison-table th {
-            background-color: #161b22;
-            color: #58a6ff;
-            font-weight: 600;
-        }
-        .comparison-table tr:nth-child(even) {
-            background-color: #0d1117;
-        }
-        .comparison-table tr:nth-child(odd) {
-            background-color: #010409;
-        }
-        ul, ol {
-            line-height: 1.8;
-        }
-        li {
-            margin-bottom: 8px;
-        }
-        code {
-            background-color: #010409;
-            border: 1px solid #30363d;
-            border-radius: 3px;
-            padding: 2px 6px;
-            color: #79c0ff;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-        .back-link {
-            color: #58a6ff;
-            text-decoration: none;
-            margin-bottom: 20px;
-            display: inline-block;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZK-Auth — Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,300&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ── RESET & BASE ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #07090f;
+  --surface:    #0d1119;
+  --surface-2:  #121820;
+  --border:     #1e2838;
+  --border-2:   #263044;
+  --sky:        #38bdf8;
+  --sky-dim:    #1e6a8a;
+  --violet:     #a78bfa;
+  --green:      #4ade80;
+  --amber:      #fbbf24;
+  --red:        #f87171;
+  --text:       #94a3b8;
+  --text-2:     #cbd5e1;
+  --text-bright:#f1f5f9;
+  --mono:       'JetBrains Mono', monospace;
+  --serif:      'Source Serif 4', Georgia, serif;
+  --display:    'Playfair Display', Georgia, serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.75;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRID BACKGROUND ─────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56,189,248,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── NAV ─────────────────────────────────────────────────────────────────── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(7,9,15,.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 32px;
+  height: 56px;
+}
+
+.nav-brand {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--sky);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-right: auto;
+  text-decoration: none;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-tab {
+  padding: 6px 18px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  text-transform: uppercase;
+}
+
+.nav-tab:hover { background: var(--surface-2); color: var(--text-2); }
+.nav-tab.active { background: var(--surface-2); color: var(--sky); border: 1px solid var(--border-2); }
+
+.nav-login {
+  margin-left: 20px;
+  padding: 6px 18px;
+  background: var(--sky-dim);
+  border: 1px solid var(--sky);
+  border-radius: 6px;
+  color: var(--sky);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+.nav-login:hover { background: var(--sky); color: #000; }
+
+/* ── PAGES ───────────────────────────────────────────────────────────────── */
+.page { display: none; position: relative; z-index: 1; }
+.page.active { display: block; }
+
+/* ── SHARED LAYOUT ───────────────────────────────────────────────────────── */
+.container { max-width: 900px; margin: 0 auto; padding: 0 32px; }
+.container-wide { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+
+/* ── HERO ────────────────────────────────────────────────────────────────── */
+.hero {
+  padding: 80px 32px 60px;
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  color: var(--sky);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  background: var(--sky);
+}
+
+.hero h1 {
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  font-weight: 700;
+  color: var(--text-bright);
+  line-height: 1.12;
+  margin-bottom: 24px;
+  letter-spacing: -.02em;
+}
+
+.hero h1 em {
+  font-style: italic;
+  color: var(--sky);
+}
+
+.hero-lead {
+  font-size: 1.05rem;
+  color: var(--text-2);
+  max-width: 640px;
+  line-height: 1.7;
+  margin-bottom: 40px;
+}
+
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.badge-sky   { background: rgba(56,189,248,.1);  border: 1px solid rgba(56,189,248,.3);  color: var(--sky);    }
+.badge-green { background: rgba(74,222,128,.1);  border: 1px solid rgba(74,222,128,.3);  color: var(--green);  }
+.badge-violet{ background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.3); color: var(--violet); }
+.badge-amber { background: rgba(251,191,36,.1);  border: 1px solid rgba(251,191,36,.3);  color: var(--amber);  }
+
+/* ── SECTION HEADINGS ────────────────────────────────────────────────────── */
+.section { padding: 60px 0; }
+.section + .section { border-top: 1px solid var(--border); }
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: .2em;
+  color: var(--sky);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-family: var(--display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 12px;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+
+.section-sub {
+  color: var(--text-2);
+  margin-bottom: 36px;
+  max-width: 640px;
+}
+
+/* ── CARDS ───────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 32px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--sky);
+  margin-bottom: 12px;
+}
+
+.card p { color: var(--text-2); margin-bottom: 10px; }
+.card p:last-child { margin-bottom: 0; }
+
+/* ── PATTERNS GRID ───────────────────────────────────────────────────────── */
+.patterns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 600px) { .patterns-grid { grid-template-columns: 1fr; } }
+
+.pattern-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 26px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.pattern-card:hover { border-color: var(--border-2); }
+
+.pattern-card.featured {
+  border-color: var(--sky-dim);
+  background: linear-gradient(135deg, var(--surface) 0%, rgba(56,189,248,.04) 100%);
+}
+
+.pattern-card.featured::before {
+  content: 'PRIMARY';
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--sky);
+  background: rgba(56,189,248,.12);
+  border: 1px solid rgba(56,189,248,.3);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.pattern-num {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.pattern-name {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  color: var(--text-bright);
+  margin-bottom: 10px;
+}
+
+.pattern-desc { font-size: 0.88rem; color: var(--text); line-height: 1.65; }
+
+.pattern-props {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.prop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text);
+}
+.prop .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot-green  { background: var(--green); }
+.dot-red    { background: var(--red); }
+.dot-amber  { background: var(--amber); }
+
+/* ── SECURITY TABLE ──────────────────────────────────────────────────────── */
+.sec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-top: 8px;
+}
+
+.sec-table th {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-align: left;
+  padding: 10px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.sec-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  vertical-align: top;
+}
+
+.sec-table td:first-child { color: var(--text-bright); font-weight: 500; }
+.sec-table tr:last-child td { border-bottom: none; }
+
+/* ── CODE / MATH BLOCKS ──────────────────────────────────────────────────── */
+code {
+  font-family: var(--mono);
+  font-size: 0.83em;
+  background: rgba(56,189,248,.08);
+  border: 1px solid rgba(56,189,248,.15);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--sky);
+}
+
+.math-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sky);
+  border-radius: 0 8px 8px 0;
+  padding: 18px 22px;
+  margin: 16px 0;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-2);
+  line-height: 1.85;
+  overflow-x: auto;
+}
+
+.math-block .lhs  { color: var(--amber); }
+.math-block .func { color: var(--violet); }
+.math-block .val  { color: var(--green); }
+.math-block .op   { color: var(--text); }
+.math-block .cmt  { color: var(--text); font-style: italic; opacity: .7; }
+
+/* ── TECH PAGE ───────────────────────────────────────────────────────────── */
+.param-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 20px 0 28px;
+}
+
+.param-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+
+.param-label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.param-value {
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--sky);
+  margin-bottom: 4px;
+}
+
+.param-note { font-size: 0.76rem; color: var(--text); }
+
+/* ── WORKFLOW PAGE ───────────────────────────────────────────────────────── */
+.workflow-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.workflow-tab {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  text-transform: uppercase;
+}
+.workflow-tab.active { background: var(--surface-2); color: var(--sky); border: 1px solid var(--border-2); }
+
+.workflow-pane { display: none; }
+.workflow-pane.active { display: block; }
+
+/* ── STEP CHAIN ──────────────────────────────────────────────────────────── */
+.step-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 0;
+  position: relative;
+}
+
+.step-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding-top: 4px;
+}
+
+.step-num {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 2px solid var(--border-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sky);
+  flex-shrink: 0;
+  z-index: 2;
+  position: relative;
+}
+
+.step-line {
+  width: 2px;
+  flex: 1;
+  background: var(--border);
+  margin: 4px 0;
+  min-height: 24px;
+}
+
+.step:last-child .step-line { display: none; }
+
+.step-body {
+  padding: 0 0 36px 16px;
+}
+
+.step-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.step-title {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.step-where {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.where-client { background: rgba(167,139,250,.1); color: var(--violet); border: 1px solid rgba(167,139,250,.25); }
+.where-server { background: rgba(74,222,128,.1);  color: var(--green);  border: 1px solid rgba(74,222,128,.25);  }
+
+.step-desc { color: var(--text-2); font-size: 0.92rem; margin-bottom: 10px; }
+
+.step-example {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-top: 10px;
+}
+
+.step-example-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 8px;
+  opacity: .8;
+}
+
+/* ── DIVIDER ─────────────────────────────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0;
+}
+
+/* ── NOTICE ──────────────────────────────────────────────────────────────── */
+.notice {
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.notice-sky   { background: rgba(56,189,248,.07);  border: 1px solid rgba(56,189,248,.2);  color: #7dd3fc; }
+.notice-green { background: rgba(74,222,128,.07);  border: 1px solid rgba(74,222,128,.2);  color: #86efac; }
+.notice-amber { background: rgba(251,191,36,.07);  border: 1px solid rgba(251,191,36,.2);  color: #fde68a; }
+.notice strong { font-weight: 600; opacity: .95; }
+
+/* ── FOOTER ──────────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: .06em;
+  color: var(--text);
+  opacity: .6;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── INLINE HIGHLIGHT ────────────────────────────────────────────────────── */
+.hl-sky    { color: var(--sky); }
+.hl-violet { color: var(--violet); }
+.hl-green  { color: var(--green); }
+.hl-amber  { color: var(--amber); }
+.hl-red    { color: var(--red); }
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+</style>
 </head>
 <body>
 
-<div class="container">
-    <a href="index.html" class="back-link">← Back to Demo</a>
-    
-    <h1>ZK-STARK Password Hashing Architecture</h1>
-    <div class="description">
-        Comprehensive guide to the authentication system, cryptographic proofs, and server-side efficiency.
+<!-- ── NAV ──────────────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="nav-brand" href="#" onclick="showPage('main');return false;">ZK-AUTH / DOCS</a>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="nav-main"       onclick="showPage('main')">Overview</button>
+    <button class="nav-tab"        id="nav-technical"  onclick="showPage('technical')">Technical</button>
+    <button class="nav-tab"        id="nav-workflows"  onclick="showPage('workflows')">Auth Workflows</button>
+  </div>
+  <a class="nav-login" href="login.html">Login Demo →</a>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PAGE 1 — OVERVIEW / MAIN
+═══════════════════════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-main">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Zero-Knowledge Authentication</div>
+    <h1>Prove your password<br>without revealing <em>anything</em>.</h1>
+    <p class="hero-lead">
+      ZK-Auth uses a full STARK proof system to let a client authenticate to a server
+      without ever transmitting — or even computing — a password hash the server could
+      misuse. The server learns only that you know the correct password. Nothing more.
+    </p>
+    <div class="hero-badges">
+      <span class="badge badge-sky">▲ STARK / FRI</span>
+      <span class="badge badge-violet">Poseidon Hash</span>
+      <span class="badge badge-green">Argon2id KDF</span>
+      <span class="badge badge-amber">MiMC-7 Circuit</span>
+      <span class="badge badge-sky">2¹²⁸ Security Target</span>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- What the system does -->
+    <div class="section">
+      <div class="section-label">Core Guarantee</div>
+      <div class="section-title">What the server never learns</div>
+      <p class="section-sub">
+        In every authentication flow, the following invariants hold unconditionally.
+      </p>
+
+      <table class="sec-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Transmitted to server?</th>
+            <th>How</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raw password</td>
+            <td class="hl-green">✗ Never</td>
+            <td>Stays in browser memory; never serialised or sent</td>
+          </tr>
+          <tr>
+            <td>Argon2id hash output (h₁)</td>
+            <td class="hl-green">✗ Never (Pattern 2)</td>
+            <td>Used only as circuit witness; not included in proof</td>
+          </tr>
+          <tr>
+            <td>Server pepper</td>
+            <td class="hl-green">✗ Never</td>
+            <td>Stored in server env / HSM; client never sees it</td>
+          </tr>
+          <tr>
+            <td>Commitment C = Poseidon(h₁, pepper)</td>
+            <td class="hl-amber">Server computes at registration</td>
+            <td>Client sends <code>mimc_output</code>; server applies pepper itself</td>
+          </tr>
+          <tr>
+            <td>STARK proof</td>
+            <td class="hl-sky">✓ Sent</td>
+            <td>Proves correct execution; reveals no witness values</td>
+          </tr>
+          <tr>
+            <td>Argon2id salt &amp; params</td>
+            <td class="hl-sky">✓ Public</td>
+            <td>Stored in DB; returned to client on login so it can re-derive h₁</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Tab Navigation -->
-    <div class="tab-container">
-        <button class="tab-button active" onclick="switchTab('overview')">Overview</button>
-        <button class="tab-button" onclick="switchTab('fixes')">Phase 1 Fixes</button>
-        <button class="tab-button" onclick="switchTab('flow')">Registration & Login</button>
-        <button class="tab-button" onclick="switchTab('auth-types')">Auth Workflows</button>
-        <button class="tab-button" onclick="switchTab('math')">Math & Cryptography</button>
-        <button class="tab-button" onclick="switchTab('security')">Security & Soundness</button>
-        <button class="tab-button" onclick="switchTab('server')">Server Storage</button>
-        <button class="tab-button" onclick="switchTab('efficiency')">Client-Side Benefits</button>
+    <!-- Auth Patterns -->
+    <div class="section">
+      <div class="section-label">Authentication Patterns</div>
+      <div class="section-title">Three modes of operation</div>
+      <p class="section-sub">
+        The system supports three auth patterns with different security / complexity trade-offs.
+        <strong class="hl-sky">Pattern 2 is the primary focus</strong> — it is the only mode
+        where the server pepper is completely opaque to the client.
+      </p>
+
+      <div class="patterns-grid">
+
+        <div class="pattern-card">
+          <div class="pattern-num">Pattern 0</div>
+          <div class="pattern-name">Standard Hash</div>
+          <p class="pattern-desc">
+            A classical bcrypt or Argon2id hash is computed client-side and sent to the server.
+            No zero-knowledge proof. Included for baseline comparison only.
+          </p>
+          <div class="pattern-props">
+            <div class="prop"><span class="dot dot-red"></span>Hash transmitted to server</div>
+            <div class="prop"><span class="dot dot-red"></span>Server could brute-force offline</div>
+            <div class="prop"><span class="dot dot-green"></span>Fast &amp; simple</div>
+          </div>
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-num">Pattern 1 — Legacy ZK</div>
+          <div class="pattern-name">Client Pepper Commit</div>
+          <p class="pattern-desc">
+            Client computes <code>C = Poseidon(h₁, serverPepper)</code> and includes it in the
+            proof's public inputs. Server re-computes and compares. Requires the pepper to be
+            available in the client execution context.
+          </p>
+          <div class="pattern-props">
+            <div class="prop"><span class="dot dot-amber"></span>Pepper referenced client-side</div>
+            <div class="prop"><span class="dot dot-green"></span>Full STARK proof</div>
+            <div class="prop"><span class="dot dot-green"></span>Password never sent</div>
+          </div>
+        </div>
+
+        <div class="pattern-card featured">
+          <div class="pattern-num">Pattern 2 — Primary</div>
+          <div class="pattern-name">Server-only Pepper Binding</div>
+          <p class="pattern-desc">
+            The client generates a STARK proof with <em>no pepper computation at all</em>.
+            After the server verifies the proof, it independently computes
+            <code>Poseidon(mimc_output, serverPepper)</code> and compares against the stored
+            commitment. The pepper is an opaque server secret the client never observes.
+          </p>
+          <div class="pattern-props">
+            <div class="dot dot-green"></div>
+            <div class="prop"><span class="dot dot-green"></span>Pepper 100% server-side</div>
+            <div class="prop"><span class="dot dot-green"></span>Password never sent</div>
+            <div class="prop"><span class="dot dot-green"></span>Full STARK proof + Argon2id binding</div>
+            <div class="prop"><span class="dot dot-green"></span>Replay-proof (server challenge)</div>
+          </div>
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-num">Pattern 3 — Experimental</div>
+          <div class="pattern-name">MiMC-STARK Direct</div>
+          <p class="pattern-desc">
+            No external KDF. The password itself is encoded as the circuit witness via
+            <code>hashBytesToWitness</code>. Useful for constrained environments but lacks
+            Argon2id's memory-hardness against offline attacks.
+          </p>
+          <div class="pattern-props">
+            <div class="prop"><span class="dot dot-amber"></span>No memory-hard KDF</div>
+            <div class="prop"><span class="dot dot-green"></span>Full STARK proof</div>
+            <div class="prop"><span class="dot dot-amber"></span>Experimental only</div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
-    <!-- TAB: Overview -->
-    <div id="overview" class="tab-content active">
-        <h2>System Overview</h2>
-        
-        <div class="section-box">
-            <h3>What Problem Does This Solve?</h3>
-            <p>
-                Traditional password authentication requires the server to:
-            </p>
-            <ul>
-                <li><strong>Store hashes</strong> (bcrypt/argon2) — but databases can be breached</li>
-                <li><strong>Compute memory-hard functions</strong> — expensive for login verification (5-100MB RAM per attempt)</li>
-                <li><strong>Rate-limit login attempts</strong> — to prevent brute-force attacks</li>
-            </ul>
-            <p>
-                This system shifts the computational burden to the <strong>client (user's browser)</strong> while providing cryptographic proof that the computation was done correctly. The server never computes the expensive hash.
-            </p>
-        </div>
+    <!-- High-level component map -->
+    <div class="section">
+      <div class="section-label">System Components</div>
+      <div class="section-title">Files and responsibilities</div>
 
-        <div class="highlight">
-            <strong>Key Insight:</strong> Instead of "send password → server hashes it", we use:
-            <br/><br/>
-            <strong>"client hashes password → proves it knows the hash → server verifies proof"</strong>
-        </div>
-
-        <div class="section-box">
-            <h3>Core Components</h3>
-            <table class="comparison-table">
-                <tr>
-                    <th>Component</th>
-                    <th>Purpose</th>
-                    <th>Location</th>
-                </tr>
-                <tr>
-                    <td><strong>Hash Function</strong><br/>(Bcrypt/Argon2)</td>
-                    <td>Convert password to cryptographically secure hash</td>
-                    <td>Browser (Client)</td>
-                </tr>
-                <tr>
-                    <td><strong>STARK Prover</strong></td>
-                    <td>Generate zero-knowledge proof that hash was computed correctly</td>
-                    <td>Browser (Client)</td>
-                </tr>
-                <tr>
-                    <td><strong>STARK Verifier</strong></td>
-                    <td>Cryptographically verify the proof without recomputing the hash</td>
-                    <td>Server</td>
-                </tr>
-                <tr>
-                    <td><strong>Database</strong></td>
-                    <td>Store user account metadata and proof-verification records</td>
-                    <td>Server</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="section-box">
-            <h3>Three Hashing Algorithms Supported</h3>
-            <table class="comparison-table">
-                <tr>
-                    <th>Algorithm</th>
-                    <th>Type</th>
-                    <th>Memory Cost</th>
-                    <th>Speed</th>
-                    <th>Proof Size</th>
-                    <th>Best For</th>
-                </tr>
-                <tr>
-                    <td><strong>Bcrypt</strong></td>
-                    <td>Key Derivation</td>
-                    <td>~4 KB</td>
-                    <td>~100ms (cost=10)</td>
-                    <td>~700 KB</td>
-                    <td>Fast login</td>
-                </tr>
-                <tr>
-                    <td><strong>Argon2id</strong></td>
-                    <td>Memory-Hard</td>
-                    <td>~1 MB</td>
-                    <td>~500ms (1 iter, 1 GB)</td>
-                    <td>~700 KB</td>
-                    <td>High security</td>
-                </tr>
-                <tr>
-                    <td><strong>MiMC-7 STARK</strong></td>
-                    <td>ZK Native</td>
-                    <td>None</td>
-                    <td>~2s</td>
-                    <td>~700 KB</td>
-                    <td>ZK protocol</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <!-- TAB: Phase 1 Fixes -->
-    <div id="fixes" class="tab-content">
-        <h2>Security Hardening: Issues #1-#4</h2>
-        
+      <div class="card">
+        <div class="card-title">stark-math.js — Field Arithmetic &amp; Primitives</div>
         <p>
-            Four critical security issues were identified during implementation review and fixed before deployment. 
-            These issues protect against advanced attacks and ensure cryptographic binding of proofs to authentication sessions. 
-            All fixes have been implemented, integrated, and tested (24/24 integration tests passing).
+          The cryptographic foundation. Provides finite-field arithmetic over the BN254
+          scalar field (<code>p ≈ 2¹⁵⁴</code>), the Number Theoretic Transform (NTT),
+          the <code>friFold</code> function, Merkle trees, the Poseidon-2 hash, and
+          the Fiat-Shamir <code>Transcript</code> sponge with integrated PoW grinding.
         </p>
+        <p>
+          Exported as <code>window.StarkMath</code> in browsers and
+          <code>module.exports</code> in Node.js. Used by both prover and verifier.
+        </p>
+      </div>
 
-        <div class="section-box">
-            <h3>🔴 Issue #1: MiMC Re-Computation Binding</h3>
-            <div class="highlight">
-                <strong>Problem:</strong> The verifier extracted <code>mimic_output</code> from the STARK trace but didn't verify it was actually computed correctly. 
-                An attacker could tamper with this value and the proof would still verify (commitment via pepper was insufficient alone).
-            </div>
-            <p><strong>Solution:</strong> The verifier now re-computes the entire 220-round MiMC-7 chain independently:</p>
-            <div class="math-block">
-Verifier re-computation:
-  expected_mimc_output = MiMC7_220rounds(
-    input = trace[0],
-    key = mimcKey,
-    rounds = 220
-  )
-  
-  if (expected_mimc_output != public_inputs.mimc_output):
-    REJECT proof
-            </div>
-            <p>
-                This is the <strong>first layer of five-layer binding</strong>:
-            </p>
-            <ul>
-                <li><strong>Layer 1 (Issue #1):</strong> MiMC re-computation — verifier re-runs 220 rounds from trace[0], must match mimc_output</li>
-                <li><strong>Layer 2 (Issue #3):</strong> mimcKey re-derivation — server derives HMAC-SHA256(nonce, serverSecret), client must provide matching hint</li>
-                <li><strong>Layer 3 (existing):</strong> Pepper commitment — Poseidon(mimc_output, serverPepper) must match pepper_commit</li>
-                <li><strong>Layer 4 (Phase 2):</strong> Argon2id AIR chain — KDF Poseidon hash-chain (64 steps) committed and re-derived server-side</li>
-                <li><strong>Layer 5 (Phase 2):</strong> Fiat-Shamir grinding — PoW (2<sup>24</sup> SHA-256 work) verified before query challenges drawn</li>
-                <li><strong>Layer 6 (Phase 2):</strong> hash_encoded binding — nonce = Poseidon(UTF-8(hash_encoded)), so any change to hash_encoded changes nonce and invalidates all Merkle/FRI paths</li>
-            </ul>
-            <p>
-                An attacker must bypass all six checks to forge a valid proof. Each layer is cryptographically independent.
-            </p>
-            <p><strong>Impact:</strong> ✅ Attacker cannot tamper with mimc_output or mimc_key without detection.</p>
-        </div>
+      <div class="card">
+        <div class="card-title">prover.js — ZKProver (Client-side)</div>
+        <p>
+          Runs entirely in the browser. Accepts a password and server challenge, runs
+          Argon2id (WASM), derives the circuit witness, builds the MiMC-7 execution trace,
+          performs the Low-Degree Extension, constructs the quotient polynomial, commits via
+          Merkle trees, runs FRI, grinds PoW, and returns the complete proof object.
+        </p>
+        <p>
+          In Pattern 2 mode (<code>algo: 'argon2id-p2'</code>), <code>pepper_commit</code>
+          is deliberately omitted from <code>public_inputs</code>.
+        </p>
+      </div>
 
-        <div class="section-box">
-            <h3>🔵 Issue #2: Server-Issued Challenge Nonce (Session Binding)</h3>
-            <div class="highlight">
-                <strong>Problem:</strong> The prover generated proof with a deterministic nonce from the hash output. 
-                A valid proof for one session could be captured and replayed in another session forever.
-            </div>
-            <p><strong>Solution:</strong> Server now issues a unique 256-bit session challenge before each proof generation:</p>
-            <div class="math-block">
-Client flow:
-  1. GET /api/nonce
-     Server returns: { nonce: "0x" + 256_random_hex_chars }
-     Server stores challenge with 15-min TTL in issuedChallenges map
-  
-  2. Client generates proof:
-     proof = prover.generateProof(password, algo, serverChallenge)
-     
-     Inside prover: Transcript.absorb(serverChallenge) as STEP 0
-     (before nonce, mimcKey, rc_commit, mimc_output, etc.)
-  
-  3. POST /api/verify
-     Server routing layer:
-       checkAndConsumeChallenge(proof.public_inputs.server_challenge)
-       - Verifies challenge was issued by this server
-       - Verifies challenge hasn't expired (TTL)
-       - Marks challenge as used (single-use enforcement)
-     
-     Then calls: verifier.verify(proof)
-       - Verifier reconstructs transcript from step 0: server_challenge
-       - All downstream challenges depend on this unique value
-            </div>
-            <p>
-                This is the <strong>session-binding layer</strong>. The server_challenge becomes the <strong>first step (step 0) of the TRANSCRIPT_ORDER</strong>:
-            </p>
-            <div class="math-block">
-TRANSCRIPT_ORDER (7 steps):
-  Step 0: server_challenge    ← Issue #2 session binding
-  Step 1: nonce               ← trace[0] = Poseidon(hash bytes)
-  Step 2: mimcKey             ← HMAC-SHA256(nonce, serverSecret) mod p (Issue #3)
-  Step 3: rc_commitment       ← Poseidon-fold of MiMC round constants
-  Step 4: mimic_output        ← Final MiMC result (Issue #1 re-computed)
-  Step 5: trace_root          ← Merkle root of execution trace
-  Step 6: q_root              ← Merkle root of quotient polynomial
-  [Challenge: friAlpha drawn from Transcript]
-  [7+i: fri_roots[i] and friAlphas[i] per fold, final value absorbed]
-  [Challenges: r_0..r_49 query indices]
-            </div>
-            <p>
-                <strong>Why this is critical:</strong> Without the server_challenge, a prover can generate one proof and use it infinite times 
-                (same password → same nonce → same mimcKey → same transcript → same proof). With server_challenge as step 0, 
-                each session has different challenges → different proof required.
-            </p>
-            <p><strong>Impact:</strong> ✅ Proofs are now session-specific. Captured proof cannot be replayed in another session.</p>
-        </div>
+      <div class="card">
+        <div class="card-title">verifier.js — ZKVerifier (Server-side)</div>
+        <p>
+          Runs on the server (Node.js). Re-derives <code>mimcKey</code> from the proof
+          nonce and server secret, replays the Fiat-Shamir transcript, checks all Merkle
+          inclusion proofs, enforces AIR constraints at each query index, checks FRI
+          consistency across all folds, and validates the PoW nonce.
+        </p>
+        <p>
+          Exposes <code>verifyPepperCommitP2(mimc_output, storedC)</code> separately —
+          called by the routing layer after <code>verify()</code> succeeds in Pattern 2.
+          Uses timing-safe comparison for all commitment checks.
+        </p>
+      </div>
 
-        <div class="section-box">
-            <h3>🟢 Issue #3: Server-Side mimcKey Re-Derivation</h3>
-            <div class="highlight">
-                <strong>Problem:</strong> The verifier had to trust the <code>public_inputs.mimcKey</code> value sent by the prover. 
-                An attacker could send a different key, and if they also tampered with the trace to match, the proof might still verify.
-            </div>
-            <p><strong>Solution:</strong> The server now re-derives the mimcKey independently and timing-safe compares:</p>
-            <div class="math-block">
-Server verification:
-  1. Extract: sessionNonce = public_inputs.nonce
-  2. Derive: expected_mimcKey = HMAC-SHA256(sessionNonce, ZK_SERVER_SECRET) mod p
-  3. Compare (timing-safe): 
-     if expected_mimcKey != public_inputs.mimcKey_hint:
-       REJECT proof
-  4. If match, proceed to MiMC re-computation and other checks
-            </div>
-            <p>
-                The server has <code>ZK_SERVER_SECRET</code> stored in HSM or secure config (dev: fallback to hardcoded constant). 
-                The prover derived the key, the verifier verifies the prover used the correct key.
-            </p>
-            <p>
-                <strong>Why timing-safe comparison matters:</strong> String comparison in naive loops can leak information via timing. 
-                Example: if expected_mimcKey = "0xabc..." and submitted_mimcKey = "0x123...", early rejection 
-                (after checking just the first byte) could be timing-detectable. Using <code>safeEqualBI()</code> 
-                ensures the comparison always takes the same time regardless of where the difference is.
-            </p>
-            <p><strong>Impact:</strong> ✅ Server independently verifies the key derivation. Attacker cannot forge a working key.</p>
-        </div>
-
-        <div class="section-box">
-            <h3>🟡 Issue #4: Remove Plaintext Hash from public_inputs</h3>
-            <div class="highlight">
-                <strong>Problem:</strong> The <code>public_inputs.hash</code> field contained the plaintext Argon2id/bcrypt output (32 bytes hex). 
-                This field was sent over the wire and slightly reduced privacy (hash is not as secret as password, but still sensitive).
-            </div>
-            <p><strong>Solution:</strong> Remove <code>public_inputs.hash</code> entirely. Replace with binding verification that doesn't require plaintext:</p>
-            <div class="math-block">
-Old (vulnerable):
-  public_inputs = {
-    hash: "0x...",  ← plaintext hash sent to server
-    mimic_output: ...,
-    pepper_commit: ...,
-    ...
-  }
-
-New (secure):
-  public_inputs = {
-    nonce: "0x...",  ← Poseidon(UTF-8(hash_encoded)) — binds nonce to hash output
-    hash_encoded: "$argon2id$...",  ← tamper-evident: verifier checks nonce == Poseidon(UTF8(this))
-    mimic_output: ...,
-    pepper_commit: ...,
-    ...
-  }
-  
-  Note: For Argon2id proofs, hash_encoded IS security-critical: nonce is derived from
-        its UTF-8 bytes. Any alteration to hash_encoded changes nonce, diverges the
-        entire Fiat-Shamir transcript, and invalidates all Merkle/FRI paths.
-            </div>
-            <p>
-                <strong>Why the 3-layer binding is sufficient:</strong> Without plaintext hash, the verifier cannot directly check 
-                "does this hash match the stored record?" But it doesn't need to, because:
-            </p>
-            <ul>
-                <li><strong>Layer 1:</strong> MiMC re-computation proves trace[0] → mimic_output is correct</li>
-                <li><strong>Layer 2:</strong> mimcKey re-derivation proves server owns the key</li>
-                <li><strong>Layer 3:</strong> Pepper commitment ties mimic_output to server secret (no plaintext needed)</li>
-            </ul>
-            <p>
-                The server stores the plaintext hash (needed for login lookup), but the proof does NOT send it. 
-                On login, the server:
-            </p>
-            <div class="math-block">
-1. Verify proof (all 3 layers pass)
-2. Extract: nonce = proof.public_inputs.nonce
-3. Expected nonce = Poseidon(hashBytesToWitness(stored_hash))
-4. If nonce matches: the prover proved knowledge of the correct password
-5. Accept login
-            </div>
-            <p>
-                This way, the hash never appears in public_inputs for Bcrypt/Argon2id; it's only used by the server for its own 
-                storage/lookup. The proof is "proof of knowledge" not "proof of plaintext hash".
-            </p>
-            <p><strong>Impact:</strong> ✅ Plaintext hash no longer transmitted. Privacy improved. Security maintained via 3-layer binding.</p>
-        </div>
-
-        <div class="section-box">
-            <h3>📋 Issues #1-#4 Security Binding Model</h3>
-            <p>
-                Each issue addresses a distinct attack vector. Together they form a comprehensive binding model:
-            </p>
-            <table class="comparison-table">
-                <tr>
-                    <th>Issue</th>
-                    <th>Attack Prevented</th>
-                    <th>Mechanism</th>
-                    <th>Server/Client</th>
-                </tr>
-                <tr>
-                    <td><strong>#1</strong></td>
-                    <td>Tamper mimic_output value</td>
-                    <td>Verifier re-computes MiMC-7 independently</td>
-                    <td>Server (verifier)</td>
-                </tr>
-                <tr>
-                    <td><strong>#2</strong></td>
-                    <td>Replay proof across sessions</td>
-                    <td>Server-issued nonce as transcript step 0; single-use enforcement</td>
-                    <td>Client/Server</td>
-                </tr>
-                <tr>
-                    <td><strong>#3</strong></td>
-                    <td>Forge/substitute mimcKey</td>
-                    <td>Server re-derives HMAC-SHA256(nonce, secret); timing-safe check</td>
-                    <td>Server (verifier)</td>
-                </tr>
-                <tr>
-                    <td><strong>#4</strong></td>
-                    <td>Reduce privacy via plaintext hash</td>
-                    <td>Remove plaintext from public_inputs; rely on 3-layer binding</td>
-                    <td>Client/Server</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="highlight" style="background-color: rgba(76, 175, 80, 0.1); border-left-color: #4caf50;">
-            <strong>✅ Status: All 4 issues implemented, integrated, and tested.</strong>
-            <br/>Integration test suite: 22/22 passing (includes 5 new security hardening tests)
-            <br/>See <code>tests/integration.test.js</code>, <code>prover.js</code>, <code>verifier.js</code>, and <code>server.js</code> for implementation details.
-        </div>
+      <div class="card">
+        <div class="card-title">login.html — Browser Client (Pattern 2 Demo)</div>
+        <p>
+          Demonstrates the full Pattern 2 registration and login flow. Fetches a server
+          challenge, runs Argon2id in-browser via WASM, generates a STARK proof, and
+          POSTs to <code>/api/p2/register</code> or <code>/api/p2/login</code>. Displays
+          live step-by-step progress with success/error states.
+        </p>
+      </div>
     </div>
 
-    <!-- TAB: Registration & Login Flow -->
-    <div id="flow" class="tab-content">
-        <h2>Registration & Authentication Flows</h2>
+  </div><!-- /container -->
+</div><!-- /page-main -->
 
-        <div class="section-box">
-            <h3>🔧 Registration Flow (First Time)</h3>
-            <div class="flow-diagram">
-┌─────────────────┐                        ┌──────────────┐
-│   User Browser  │                        │ Server / DB  │
-└────────┬────────┘                        └──────┬───────┘
-         │                                         │
-         │  1. User enters password                │
-         │     (e.g., "SecurePassword123")         │
-         │                                         │
-         ├─────────────────────────────────────→  │
-         │  2. Browser: hash password              │
-         │     (Bcrypt/Argon2id)                   │
-         │     output = Hash("SecurePassword123")  │
-         │                                         │
-         ├─────────────────────────────────────→  │
-         │  3. Browser: generate ZK proof         │
-         │     Proof that: "I know a value        │
-         │     that hashes to output"              │
-         │                                         │
-         │     Send: {                             │
-         │       hash: output,                     │
-         │       proof: {...STARK proof...}        │
-         │     }                                   │
-         │                                         │
-         ├────────────── POST /register ─────────→ │
-         │                                         │
-         │                        4. Server:       │
-         │                        - Verify proof   │
-         │                        - Extract hash   │
-         │                        - Store in DB    │
-         │                                         │
-         │  5. 201 Created (account ready)         │
-         │  ←──────────────────────────────────    │
-         │                                         │
-         │                        DB now has:      │
-         │                        {                │
-         │                          username: ..., │
-         │                          hash: output,  │
-         │                          proof_hash:...,│
-         │                          created: ...   │
-         │                        }                │
-         │                                         │
-            </div>
 
-            <div class="highlight">
-                <strong>What the server stores:</strong>
-                <ul>
-                    <li><code>username</code> — User identifier</li>
-                    <li><code>hash</code> — The bcrypt/argon2 output (proof of correct computation)</li>
-                    <li><code>proof_hash</code> — SHA-256 of the original STARK proof (audit trail)</li>
-                    <li><code>algorithm</code> — "bcrypt" | "argon2id"</li>
-                    <li><code>created_at</code> — Registration timestamp</li>
-                </ul>
-            </div>
-        </div>
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PAGE 2 — TECHNICAL
+═══════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-technical">
+<div class="container" style="padding-top:56px; padding-bottom:72px;">
 
-        <div class="section-box">
-            <h3>🔐 Login Flow (Authentication)</h3>
-            <div class="flow-diagram">
-┌─────────────────┐                        ┌──────────────┐
-│   User Browser  │                        │ Server / DB  │
-└────────┬────────┘                        └──────┬───────┘
-         │                                         │
-         │  1. User enters password                │
-         │     (e.g., "SecurePassword123")         │
-         │                                         │
-         │  2. Browser: hash password              │
-         │     with SAME parameters as stored      │
-         │                                         │
-         │     output = Hash("SecurePassword123")  │
-         │                                         │
-         │  3. Browser: generate ZK proof         │
-         │                                         │
-         │  Send: {hash, proof}                    │
-         │                                         │
-         ├────────────── POST /login ────────────→ │
-         │                                         │
-         │                        4. Server:       │
-         │                        - Verify proof   │
-         │                        - Extract hash   │
-         │                        - Compare with   │
-         │                          stored hash    │
-         │                                         │
-         │  5. If match: 200 OK (logged in)        │
-         │  ←──────────────────────────────────    │
-         │     (Session/JWT token issued)          │
-         │                                         │
-         │  6. If NO match: 401 Unauthorized       │
-         │  ←──────────────────────────────────    │
-         │     (Proof verifies but hash differs)   │
-         │                                         │
-            </div>
+  <div class="section-label" style="padding-top:12px;">Technical Reference</div>
+  <h2 class="section-title" style="font-size:2rem;margin-bottom:8px;">Cryptographic Primitives &amp; Security Parameters</h2>
+  <p style="color:var(--text-2);max-width:680px;margin-bottom:40px;">
+    Complete specification of the field, hash functions, cipher, proof system parameters,
+    and security argument for the ZK-Auth STARK construction.
+  </p>
 
-            <div class="highlight">
-                <strong>Why this approach is better:</strong>
-                <ul>
-                    <li>Server <strong>never computes Argon2</strong> (which costs 500ms + 1GB RAM)</li>
-                    <li>Server <strong>only verifies proof</strong> (~200ms, no expensive hashing)</li>
-                    <li>Proof verification is <strong>deterministic & non-interactive</strong></li>
-                    <li>Resistant to <strong>server-side timing attacks</strong> (computation is on client)</li>
-                    <li>Attacker can't brute-force the server (client-side delay)</li>
-                </ul>
-            </div>
-        </div>
+  <!-- FIELD -->
+  <div class="section">
+    <div class="section-label">§1 — Finite Field</div>
+    <div class="section-title">BN254 Scalar Field</div>
+    <p class="section-sub">All arithmetic is performed modulo the BN254 scalar field prime.</p>
+    <div class="math-block">
+      <span class="lhs">p</span> <span class="op">=</span> <span class="val">21888242871839275222246405745257275088548364400416034343698204186575808495617</span><br>
+      <span class="cmt">    ≈ 2¹⁵⁴ — a ~254-bit prime, the scalar field of the BN254 elliptic curve</span><br><br>
+      <span class="lhs">g</span> <span class="op">=</span> <span class="val">5</span> &nbsp;&nbsp;<span class="cmt">— primitive root / field generator</span><br>
+      <span class="cmt">    p − 1 = 2²⁸ × q  (2-adic valuation 28, enabling NTT over domains up to size 2²⁸)</span>
+    </div>
+    <div class="notice notice-sky">
+      <strong>Why BN254?</strong> Its scalar field has a large 2-adic factor, making it NTT-friendly for
+      trace sizes up to 2³², and Poseidon was specifically designed and analysed for this field.
+      All field elements fit in 254 bits (≈ 32 bytes), keeping proof sizes compact.
+    </div>
+  </div>
 
-        <div class="section-box">
-            <h3>🚪 Login Failure Scenarios</h3>
-            <ul>
-                <li>
-                    <strong>Wrong password:</strong> Client hashes to different output → proof still valid
-                    but <code>hash</code> field doesn't match stored hash → 401 Unauthorized
-                </li>
-                <li>
-                    <strong>Proof is forged:</strong> STARK verification fails at AIR/FRI check → 400 Bad Request
-                </li>
-                <li>
-                    <strong>hash_encoded tampered:</strong> Verifier re-derives expected nonce from
-                    <code>hashBytesToWitness(UTF-8(hash_encoded))</code> and compares to
-                    <code>public_inputs.nonce</code>. Any mismatch → "hash_encoded binding check failed" → 400 Bad Request.
-                    Because nonce feeds every FRI/Merkle challenge, even a single character change is detected.
-                </li>
-                <li>
-                    <strong>User doesn't exist:</strong> Query returns null → 401 Unauthorized (no timing leak)
-                </li>
-            </ul>
-        </div>
+  <!-- POSEIDON -->
+  <div class="section">
+    <div class="section-label">§2 — Hash Function</div>
+    <div class="section-title">Poseidon-2 Permutation</div>
+    <p class="section-sub">
+      Used for the Fiat-Shamir transcript sponge, the KDF chain commitment, Merkle tree
+      leaf/node hashing, the round-constant commitment, and the pepper commitment.
+    </p>
+    <div class="math-block">
+      <span class="cmt">— Poseidon-2 permutation (width t = 3: two rate lanes s0, s1 + one capacity s2) —</span><br><br>
+      <span class="func">poseidonPermute</span><span class="op">(s0, s1, s2)</span> <span class="op">→</span> <span class="op">(s0', s1', s2')</span><br><br>
+      <span class="cmt">Transcript sponge (Fiat-Shamir):</span><br>
+      &nbsp; <span class="func">absorb</span><span class="op">(v):</span>  s0 <span class="op">← (</span>s0 <span class="op">+</span> v<span class="op">)</span> <span class="op">mod p</span> &nbsp;&nbsp;<span class="op">→</span>&nbsp;&nbsp; <span class="op">(s0,s1,s2)</span> <span class="op">←</span> <span class="func">poseidonPermute</span><span class="op">(s0,s1,s2)</span><br>
+      &nbsp; <span class="func">challenge</span><span class="op">():</span> s1 <span class="op">← (</span>s1 <span class="op">+ 1)</span> <span class="op">mod p</span> <span class="op">→</span> <span class="op">(s0,s1,s2)</span> <span class="op">←</span> <span class="func">poseidonPermute</span><span class="op">(s0,s1,s2)</span> <span class="op">→</span> <span class="op">return</span> s0<br><br>
+      <span class="cmt">hashBytesToWitness(bytes) — encode a byte array as a single field element:</span><br>
+      &nbsp; chunk bytes into 31-byte (248-bit) limbs v₀, v₁, … (stays safely under p)<br>
+      &nbsp; <span class="lhs">h</span> <span class="op">=</span> <span class="func">poseidonHash</span><span class="op">([v₀, v₁, …])</span>&nbsp;&nbsp;<span class="cmt">← used for Argon2id output, bcrypt output, salt &amp; pepper</span>
+    </div>
+  </div>
+
+  <!-- ARGON2ID -->
+  <div class="section">
+    <div class="section-label">§3 — Key Derivation Function</div>
+    <div class="section-title">Argon2id (Memory-Hard KDF)</div>
+    <p class="section-sub">
+      Argon2id is the OWASP-recommended password hashing function. It is memory-hard,
+      defeating GPU and ASIC brute-force attacks. The following parameter floor is enforced
+      by both the prover and verifier.
+    </p>
+    <div class="param-grid">
+      <div class="param-card">
+        <div class="param-label">Time cost (t)</div>
+        <div class="param-value">≥ 3</div>
+        <div class="param-note">Minimum iterations (OWASP min)</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">Memory cost (m)</div>
+        <div class="param-value">≥ 64 MB</div>
+        <div class="param-note">65 536 KB minimum</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">Parallelism (p)</div>
+        <div class="param-value">≥ 4</div>
+        <div class="param-note">Thread lanes (advisory)</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">Hash length</div>
+        <div class="param-value">32 B</div>
+        <div class="param-note">256-bit output</div>
+      </div>
+    </div>
+    <div class="math-block">
+      <span class="lhs">result</span> <span class="op">=</span> <span class="func">Argon2id</span><span class="op">(</span>password, salt, t, m, p, hashLen<span class="op">)</span><br>
+      <span class="lhs">encodedStr</span> <span class="op">=</span> result.encoded &nbsp;&nbsp;<span class="cmt">← "$argon2id$v=19$m=65536,t=3,p=4$&lt;b64salt&gt;$&lt;b64hash&gt;"</span><br>
+      <span class="lhs">h₁</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span>encodedStr<span class="op">))</span>&nbsp;<span class="cmt">← tamper-evident: altering encoded string changes h₁</span>
+    </div>
+    <div class="notice notice-amber">
+      <strong>Tamper-evidence:</strong> The witness is derived from the full encoded string
+      (including parameters and base64 hash), not just the raw hash bytes. Any alteration to
+      <code>encodedStr</code> changes <code>h₁</code>, which changes the transcript nonce, which
+      invalidates every Merkle path and FRI check in the proof.
+    </div>
+  </div>
+
+  <!-- MIMC -->
+  <div class="section">
+    <div class="section-label">§4 — Symmetric Cipher</div>
+    <div class="section-title">MiMC-7 Block Cipher</div>
+    <p class="section-sub">
+      MiMC is a block cipher designed for ZK-friendliness — its step function is a single
+      low-degree polynomial over the field (degree 7 with the x⁷ exponent). This makes it
+      directly expressible as an Algebraic Intermediate Representation (AIR) constraint.
+    </p>
+    <div class="math-block">
+      <span class="cmt">— MiMC-7 with 220 rounds —</span><br><br>
+      <span class="lhs">mimcKey</span> <span class="op">=</span> <span class="func">HMAC-SHA256</span><span class="op">(</span>nonce, serverSecret<span class="op">) mod p</span>&nbsp;&nbsp;<span class="cmt">← session-specific key (Fix #2)</span><br><br>
+      <span class="cmt">Round constants Cᵢ (nothing-up-my-sleeve, deterministic):</span><br>
+      &nbsp; s₀ <span class="op">= RC_A</span> &nbsp;<span class="cmt">← 2π × 10¹⁸ digits (mod p)</span><br>
+      &nbsp; sᵢ₊₁ <span class="op">= (</span>sᵢ × RC_B <span class="op">+</span> i × RC_A <span class="op">+ 1) mod p</span>&nbsp;&nbsp;<span class="cmt">← RC_B = φ × 10¹⁸ (golden ratio)</span><br><br>
+      <span class="cmt">Execution trace (256 rows, 220 active MiMC rounds):</span><br>
+      &nbsp; trace<span class="op">[0]</span> <span class="op">=</span> h₁&nbsp;&nbsp;<span class="cmt">← Argon2id witness (Fix #1)</span><br>
+      &nbsp; t <span class="op">= (</span>trace<span class="op">[i]</span> <span class="op">+</span> mimcKey <span class="op">+</span> Cᵢ<span class="op">) mod p</span><br>
+      &nbsp; trace<span class="op">[i+1]</span> <span class="op">= t⁷ mod p</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">for i = 0..219</span><br><br>
+      <span class="lhs">finalOutput</span> <span class="op">=</span> trace<span class="op">[220]</span>&nbsp;&nbsp;<span class="cmt">← public circuit output (mimc_output in proof)</span>
+    </div>
+    <p style="color:var(--text-2);">
+      With 220 rounds, MiMC provides a ×5 safety margin over the minimum of ⌈log₇(p)⌉ ≈ 40 rounds
+      required to resist interpolation attacks, contributing an estimated 25–45 additional bits of
+      concrete security.
+    </p>
+  </div>
+
+  <!-- AIR / STARK -->
+  <div class="section">
+    <div class="section-label">§5 — Proof System</div>
+    <div class="section-title">STARK + FRI Construction</div>
+    <p class="section-sub">
+      The STARK proof encodes the MiMC execution trace as a polynomial, proves it satisfies
+      the MiMC AIR constraint everywhere on the trace domain, then uses FRI to prove the
+      resulting quotient polynomial is low-degree.
+    </p>
+
+    <div class="param-grid">
+      <div class="param-card">
+        <div class="param-label">Trace size</div>
+        <div class="param-value">256</div>
+        <div class="param-note">Rows in execution trace</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">LDE blowup</div>
+        <div class="param-value">32×</div>
+        <div class="param-note">LDE domain = 8 192 points</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">FRI folds</div>
+        <div class="param-value">9</div>
+        <div class="param-note">log₂(32) + 1</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">Query count</div>
+        <div class="param-value">35</div>
+        <div class="param-note">Soundness ≤ 2⁻¹⁷⁵</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">PoW bits</div>
+        <div class="param-value">2²⁴</div>
+        <div class="param-note">~16M SHA-256 ops</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">Security target</div>
+        <div class="param-value">2¹²⁸</div>
+        <div class="param-note">Statistical soundness</div>
+      </div>
     </div>
 
-    <!-- TAB: Authentication Types & Workflows -->
-    <div id="auth-types" class="tab-content">
-        <h2>Authentication Workflows & Architectures</h2>
-
-        <div class="section-box">
-            <h3>Overview: Three Authentication Patterns</h3>
-            <p>
-                This system supports multiple authentication workflows, each suited for different security and privacy requirements.
-            </p>
-            <table class="comparison-table">
-                <tr>
-                    <th>Pattern</th>
-                    <th>Server Stores</th>
-                    <th>Registration Hash</th>
-                    <th>Login Hash</th>
-                    <th>Best For</th>
-                </tr>
-                <tr>
-                    <td><strong>Verified Hash Storage</strong></td>
-                    <td>H(password, salt)</td>
-                    <td>H(p, salt)</td>
-                    <td>H(H(p, salt), nonce)</td>
-                    <td>Standard authentication</td>
-                </tr>
-                <tr>
-                    <td><strong>ZK-Only (No Storage)</strong></td>
-                    <td>Proof commitment only</td>
-                    <td>H(p, salt)</td>
-                    <td>H(H(p, salt), nonce)</td>
-                    <td>Maximum privacy</td>
-                </tr>
-                <tr>
-                    <td><strong>Salted Lookup</strong></td>
-                    <td>salt (unique per user)</td>
-                    <td>H(p, salt)</td>
-                    <td>H(H(p, salt), nonce)</td>
-                    <td>Password breach mitigation</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="section-box">
-            <h3>Pattern 1: Verified Hash Storage (Current Implementation)</h3>
-            <p>
-                This is the standard approach: server stores the hash, uses it to verify logins.
-            </p>
-
-            <h4>Registration: H(p, salt) → Store Hash</h4>
-            <div class="math-block">
-Registration Process:
-  1. User submits password p
-  2. Client: 
-     - Generate random salt s
-     - Compute h₁ = H(p, s)  ← First hash with salt
-     - Generate STARK proof of h₁
-  3. Server receives: {h₁, proof, username}
-  4. Server:
-     - Verify STARK proof
-     - Store h₁ in database
-     
-Database stores: {username, h₁, algorithm, salt (if needed)}
-            </div>
-
-            <div class="highlight">
-                <strong>Why this works:</strong>
-                <ul>
-                    <li>Salt prevents rainbow table attacks</li>
-                    <li>STARK proof verifies correct computation on client</li>
-                    <li>Server never touches password or expensive hash computation</li>
-                    <li>Can use strong memory-hard functions (Argon2id)</li>
-                </ul>
-            </div>
-
-            <h4>Login: H(H(p, salt), nonce) → Verify Against Stored</h4>
-            <div class="math-block">
-Login Process:
-  1. User submits password p
-  2. Server sends: {username, nonce} 
-     where nonce = random challenge
-  3. Client:
-     - Look up stored salt for this username (or receive from server)
-     - Compute h₁ = H(p, salt)  ← Same as registration
-     - Compute h₂ = H(h₁, nonce)  ← Hash of hash with nonce
-     - Generate STARK proof of h₂
-  4. Server receives: {h₂, proof}
-  5. Server:
-     - Verify STARK proof
-     - Re-derive: expected_h₂ = H(stored_h₁, nonce)
-     - Compare: if h₂ == expected_h₂ then LOGIN SUCCESS
-     
-Login succeeds only if:
-  ✓ STARK proof is valid (computation was correct)
-  ✓ h₂ matches expected value (password was correct)
-            </div>
-
-            <div class="highlight">
-                <strong>Double Hashing: Why H(H(p, s), nonce)?</strong>
-                <br/>
-                <ul>
-                    <li>
-                        <strong>Registration uses H(p, s):</strong> Expensive, memory-hard (Argon2id)
-                        Server stores this value, but client can't feasibly compute it per login attempt
-                    </li>
-                    <li>
-                        <strong>Login uses H(H(p, s), nonce):</strong> Quick inner hash, then outer hash with nonce
-                        This is much faster but still cryptographically secure
-                    </li>
-                    <li>
-                        <strong>Nonce prevents replay:</strong> Each login uses different nonce
-                        Same password → different proof each time
-                    </li>
-                    <li>
-                        <strong>Proof binds both:</strong> STARK proof cryptographically verifies entire computation
-                    </li>
-                </ul>
-            </div>
-
-            <h4>Visual Flow</h4>
-            <div class="flow-diagram">
-Registration:
-  User: "password123"
-    ↓ [Client: hash with Argon2]
-  h₁ = Argon2("password123", salt)
-    ↓ [Client: STARK proof]
-  proof₁ = STARK_prove(h₁)
-    ↓ [Send to server]
-  Server stores: {user, h₁, salt}
-
-Login:
-  User: "password123"
-  Server sends: nonce=random123
-    ↓ [Client: re-derive h₁]
-  h₁ = Argon2("password123", stored_salt)
-    ↓ [Client: hash h₁ with nonce]
-  h₂ = SHA256(h₁ || nonce)
-    ↓ [Client: STARK proof of h₂]
-  proof₂ = STARK_prove(h₂)
-    ↓ [Send {h₂, proof₂}]
-  Server:
-    - Verify proof₂
-    - Compute: expected = SHA256(stored_h₁ || nonce)
-    - If h₂ == expected: LOGIN SUCCESS
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Pattern 2: ZK-Only (No Hash Storage)</h3>
-            <p>
-                For maximum privacy, server never stores the actual hash. Instead, it stores a commitment
-                to the hash and verifies only through zero-knowledge proofs.
-            </p>
-
-            <h4>The Challenge: Can We Authenticate Without Storing H(p)?</h4>
-            <div class="highlight">
-                <strong>Answer: Yes, using commitments!</strong>
-                <br/><br/>
-                Instead of storing h₁ = H(p, s), store a cryptographic commitment:
-                <br/>
-                <code>commitment = Poseidon(h₁, pepper)</code>
-                <br/>
-                where pepper is server-secret (never given to client).
-            </div>
-
-            <h4>Registration: H(p, salt) → Store Commitment Only</h4>
-            <div class="math-block">
-Registration Process:
-  1. Client: h₁ = Argon2(p, salt)
-  2. Client: Generate STARK proof of h₁
-  3. Client sends: {h₁, proof}  ← hash visible during registration
-  4. Server receives:
-     - Verify STARK proof
-     - Compute: C = Poseidon(h₁, secret_pepper)
-     - Store ONLY C in database (forget h₁)
-     - h₁ is never stored, only commitment
-     
-Database stores: {username, C, algorithm}
-  where C = Poseidon(h₁, pepper) and pepper is server-secret
-            </div>
-
-            <h4>Login: Prove Knowledge of H(H(p, salt), nonce) Without Revealing</h4>
-            <div class="math-block">
-Login Process:
-  1. Server sends: {nonce, pepper_share}
-     where pepper_share = pepper ⊕ session_key
-  2. Client:
-     - Compute h₁ = Argon2(p, salt) [same as registration]
-     - Compute pepper = pepper_share ⊕ session_key
-     - Verify: C_expected = Poseidon(h₁, pepper)
-     - Compute h₂ = SHA256(h₁ || nonce)
-     - Generate STARK proof that:
-       ✓ h₁ commits to correct password
-       ✓ h₂ = SHA256(h₁, nonce)
-       ✓ C_computed matches stored C
-  3. Server:
-     - Verify STARK proof
-     - Does NOT see h₁ or h₂ (only proof)
-     - Knows client proved knowledge of correct password
-     
-Login succeeds purely through ZK proof verification!
-            </div>
-
-            <div class="highlight">
-                <strong>Advantages of ZK-Only:</strong>
-                <ul>
-                    <li>
-                        <strong>No breach of H(p):</strong> Server never stores the hash itself
-                        Even if database is stolen, attacker gets only commitments
-                    </li>
-                    <li>
-                        <strong>Perfect forward secrecy:</strong> Old proofs are useless
-                        Each login generates new proof with new nonce
-                    </li>
-                    <li>
-                        <strong>Reduced server liability:</strong> Can't leak what's not stored
-                    </li>
-                    <li>
-                        <strong>Privacy-first:</strong> Alignment with privacy regulations (GDPR, etc.)
-                    </li>
-                </ul>
-            </div>
-
-            <h4>Implementation Notes</h4>
-            <div class="math-block">
-Server-side:
-  pepper = 256-bit secret, stored in secure key management
-  
-Registration:
-  C = Poseidon(h₁, pepper)
-  DELETE h₁ after verification (don't store)
-  
-Login:
-  pepper_share = pepper ⊕ session_key
-  Send pepper_share over HTTPS
-  Client recovers pepper using session_key
-  Client proves it knows h₁ via proof
-  Server never sees h₁
-  
-Problem to solve:
-  How does client prove knowledge of h₁ without revealing it?
-  Answer: STARK proof that proves the computation!
-  The proof itself becomes the authentication credential.
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Pattern 3: Salted Lookup (Hybrid)</h3>
-            <p>
-                A middle ground: server stores salt (cheap) and uses it to verify, but not the hash itself.
-            </p>
-
-            <h4>Registration: Generate & Store Salt</h4>
-            <div class="math-block">
-Registration Process:
-  1. Client: 
-     - h₁ = Argon2(p, salt)
-     - proof = STARK_prove(h₁)
-  2. Server:
-     - Verify proof
-     - Store: {username, salt, proof_hash}
-     - Do NOT store h₁ (salt is enough)
-     
-Database stores: {username, salt, algorithm}
-  Salt allows server to validate password without storing hash.
-            </div>
-
-            <h4>Login: Derive Expected Hash From Stored Salt</h4>
-            <div class="math-block">
-Login Process (Server-Side):
-  1. User claims identity: username
-  2. Server looks up: stored_salt
-  3. Server sends: {nonce, salt}  ← Server reveals salt
-  4. Client:
-     - h₁ = Argon2(password, salt)  ← Derives h₁ from password + salt
-     - h₂ = SHA256(h₁, nonce)
-     - proof = STARK_prove(h₂)
-  5. Server:
-     - Verify STARK proof
-     - Verify structure: proof proves knowledge of some h₁
-     - Accept login (no need to compare against stored value!)
-     
-Key insight: Server doesn't verify "is this the right hash?"
-Instead: "Can you prove you know SOME h₁ that led to this proof?"
-With cryptographic proof, this IS enough!
-            </div>
-
-            <div class="highlight">
-                <strong>Advantages of Salted Lookup:</strong>
-                <ul>
-                    <li>
-                        <strong>Salt stored separately:</strong> Different users have different salts
-                        Rainbow table attacks impossible (each user has unique salt)
-                    </li>
-                    <li>
-                        <strong>No hash storage:</strong> Doesn't store H(p, s), only the salt s
-                    </li>
-                    <li>
-                        <strong>Simpler than ZK-only:</strong> No need for pepper, commitments, or complex proofs
-                    </li>
-                    <li>
-                        <strong>Good privacy/usability balance:</strong> Practical and secure
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Comparison: Which Pattern to Use?</h3>
-            <table class="comparison-table">
-                <tr>
-                    <th>Aspect</th>
-                    <th>Hash Storage</th>
-                    <th>ZK-Only</th>
-                    <th>Salted Lookup</th>
-                </tr>
-                <tr>
-                    <td><strong>Complexity</strong></td>
-                    <td>Simple</td>
-                    <td>Complex (pepper management)</td>
-                    <td>Medium</td>
-                </tr>
-                <tr>
-                    <td><strong>If DB breached</strong></td>
-                    <td>Hash is exposed (but Argon2 makes it hard)</td>
-                    <td>Only commitment exposed (useless)</td>
-                    <td>Only salt exposed (not enough)</td>
-                </tr>
-                <tr>
-                    <td><strong>Server-side cost</strong></td>
-                    <td>Store & lookup hash</td>
-                    <td>Compute commitment, secret pepper</td>
-                    <td>Store & lookup salt</td>
-                </tr>
-                <tr>
-                    <td><strong>Proof verification</strong></td>
-                    <td>Verify h₂ matches stored h₁</td>
-                    <td>Verify proof only (no comparison)</td>
-                    <td>Verify proof only</td>
-                </tr>
-                <tr>
-                    <td><strong>Privacy level</strong></td>
-                    <td>Good (Argon2 is strong)</td>
-                    <td>Best (hash never stored)</td>
-                    <td>Very good (salt only)</td>
-                </tr>
-                <tr>
-                    <td><strong>Industry standard</strong></td>
-                    <td>✅ Yes</td>
-                    <td>❌ Experimental</td>
-                    <td>⚠️ Novel</td>
-                </tr>
-                <tr>
-                    <td><strong>Recommended for</strong></td>
-                    <td>Most applications</td>
-                    <td>Privacy-critical apps</td>
-                    <td>Privacy-conscious startups</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="section-box">
-            <h3>Workflow Decision Tree</h3>
-            <p>Choose your authentication pattern based on your requirements:</p>
-
-            <div class="highlight">
-                <strong>Question 1: Must you store the password hash?</strong>
-                <br/>
-                <ul>
-                    <li>
-                        <strong>Yes, for compliance/auditability:</strong> Use Pattern 1 (Hash Storage)
-                        <br/>Most enterprises, banking, healthcare need hash storage for verification
-                    </li>
-                    <li>
-                        <strong>No, prioritize privacy:</strong> Continue to Question 2
-                    </li>
-                </ul>
-            </div>
-
-            <div class="highlight">
-                <strong>Question 2: Can your server manage secret peppers?</strong>
-                <br/>
-                <ul>
-                    <li>
-                        <strong>Yes, HSM/secure enclave available:</strong> Use Pattern 2 (ZK-Only)
-                        <br/>Maximum privacy, no hash storage, commitment-based
-                    </li>
-                    <li>
-                        <strong>No, keep it simple:</strong> Use Pattern 3 (Salted Lookup)
-                        <br/>Salt is simple, no complex secrets, still privacy-preserving
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Technical Implementation Guide</h3>
-
-            <h4>Pattern 1: Hash Storage (Standard)</h4>
-            <div class="math-block">
-Client code:
-  password = "userInput"
-  salt = cryptographically_secure_random(32)
-  h1 = argon2id(password, salt, {time: 2, mem: 65536, ...})
-  proof = starkProver.generateAuthProof(h1, salt)
-  // On login:
-  nonce = "server_challenge_random"
-  h2 = sha256(h1 + nonce)
-  proof2 = starkProver.generateAuthProof(h2, nonce)
-
-Server code:
-  // Registration
-  verifySTARK(proof)  // Verify h1 computation
-  db.store({username, hash: h1, algorithm: "argon2id"})
-  
-  // Login
-  verifySTARK(proof2)  // Verify h2 computation
-  expected_h2 = sha256(db.hash + nonce)
-  if (h2 == expected_h2) → LOGIN_SUCCESS
-            </div>
-
-            <h4>Pattern 2: ZK-Only (Advanced)</h4>
-            <div class="math-block">
-Server code:
-  pepper = cryptographically_secure_random(256)  // Secret!
-  // Never expose pepper directly
-
-Registration:
-  commitment = poseidon(h1_from_client, pepper)
-  db.store({username, commitment: commitment})
-  // h1 is forgotten
-
-Login:
-  pepper_share = pepper XOR session_key
-  send_to_client(pepper_share)
-  // Client recovers pepper = pepper_share XOR session_key
-  // Client proves it knows h1 via STARK
-  // Server never sees h1, only verifies proof
-            </div>
-
-            <h4>Pattern 3: Salted Lookup (Simple Privacy)</h4>
-            <div class="math-block">
-Client code:
-  password = "userInput"
-  salt = server_provided_salt
-  h1 = argon2id(password, salt)
-  nonce = server_challenge
-  h2 = sha256(h1 + nonce)
-  proof = starkProver.generateAuthProof(h2, nonce)
-
-Server code:
-  // Registration
-  db.store({username, salt: random_salt})
-  
-  // Login
-  salt = db.lookup_salt(username)
-  send(salt, nonce)
-  // Client can now compute h1, prove h2
-  verifySTARK(proof)  // No comparison needed!
-  // Proof itself is sufficient authentication
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Security Implications of Each Pattern</h3>
-
-            <h4>Pattern 1: If Server Database is Breached</h4>
-            <ul>
-                <li>
-                    <strong>Attacker has:</strong> {username, h₁ = Argon2(p, s), s if stored}
-                </li>
-                <li>
-                    <strong>Attacker's goal:</strong> Reverse h₁ to get p
-                </li>
-                <li>
-                    <strong>Attack cost:</strong> Argon2(t=2, m=65536) ≈ 500ms per guess
-                    For 1000 guesses: ~500 seconds = 8 minutes
-                </li>
-                <li>
-                    <strong>Mitigation:</strong> Use strong parameters, rate-limit guesses
-                </li>
-            </ul>
-
-            <h4>Pattern 2: If Server Database is Breached</h4>
-            <ul>
-                <li>
-                    <strong>Attacker has:</strong> {username, C = Poseidon(h₁, pepper)}
-                </li>
-                <li>
-                    <strong>Attacker's goal:</strong> Break Poseidon(h₁, pepper) where pepper is unknown
-                </li>
-                <li>
-                    <strong>Attack cost:</strong> Collision attack on Poseidon ≈ 2^128 work
-                    (practically impossible)
-                </li>
-                <li>
-                    <strong>Result:</strong> Breach is almost inconsequential
-                    Attacker has commitment but can't authenticate
-                </li>
-            </ul>
-
-            <h4>Pattern 3: If Server Database is Breached</h4>
-            <ul>
-                <li>
-                    <strong>Attacker has:</strong> {username, s (salt), algorithm}
-                </li>
-                <li>
-                    <strong>Attacker's goal:</strong> Generate valid STARK proof
-                </li>
-                <li>
-                    <strong>Attack cost:</strong> Must know password p to compute h₁
-                    Then: Argon2(p, s) ≈ 500ms per guess
-                </li>
-                <li>
-                    <strong>Result:</strong> Similar to Pattern 1 (if salt is leaked)
-                    But uniqueness per user helps
-                </li>
-            </ul>
-        </div>
+    <div class="math-block">
+      <span class="cmt">— AIR Constraint (enforced at every trace step i = 0..219) —</span><br><br>
+      P(w·z) <span class="op">=</span> <span class="op">(</span>P(z) <span class="op">+</span> mimcKey <span class="op">+</span> C(z)<span class="op">)⁷</span>&nbsp;&nbsp;<span class="cmt">← w = domain generator (order = TRACE_SIZE)</span><br><br>
+      <span class="cmt">— Quotient Polynomial —</span><br>
+      Q(x) <span class="op">= [</span>P(w·x) <span class="op">− (</span>P(x) <span class="op">+</span> mimcKey <span class="op">+</span> C(x)<span class="op">)⁷] /</span> Z_T(x)<br>
+      Z_T(x) <span class="op">= x^220 − 1</span>&nbsp;&nbsp;<span class="cmt">← vanishing polynomial (zeros on trace domain)</span><br><br>
+      <span class="cmt">If Q is low-degree, the constraint holds on all 220 steps — soundness 2⁻¹⁷⁵</span><br><br>
+      <span class="cmt">— Secondary KDF trace (Argon2id AIR binding) —</span><br>
+      kdfTrace<span class="op">[0]</span>   <span class="op">=</span> h₁<br>
+      kdfTrace<span class="op">[i+1]</span> <span class="op">=</span> <span class="func">Poseidon</span><span class="op">(</span>kdfTrace<span class="op">[i]</span>, <span class="op">(</span>mimcKey <span class="op">+</span> C<span class="op">[i mod 220]) mod p)</span>&nbsp;&nbsp;<span class="cmt">← 64 rows</span><br>
+      kdfChainCommit <span class="op">=</span> <span class="func">Poseidon-fold</span><span class="op">(</span>kdfTrace<span class="op">[0..63])</span>
     </div>
 
-    <!-- TAB: Math & Cryptography -->
-    <div id="math" class="tab-content">
-        <h2>Mathematical Foundation</h2>
+    <div class="section-label" style="margin-top:28px;">Fiat-Shamir Transcript Order</div>
+    <p style="color:var(--text-2);margin-bottom:14px;">
+      Both prover and verifier must absorb values in exactly this order. Deviations cause
+      all challenge values to diverge, making every check fail.
+    </p>
+    <div class="math-block">
+      <span class="cmt">Step 0:</span>  absorb(server_challenge)  <span class="cmt">← 256-bit server nonce — binds proof to this session</span><br>
+      <span class="cmt">Step 1:</span>  absorb(nonce)             <span class="cmt">← hashWitness = h₁ field element</span><br>
+      <span class="cmt">Step 2:</span>  absorb(mimcKey)           <span class="cmt">← HMAC-derived session key</span><br>
+      <span class="cmt">Step 3:</span>  absorb(rc_commitment)     <span class="cmt">← Poseidon fold of all 220 round constants</span><br>
+      <span class="cmt">Step 4:</span>  absorb(mimc_output)       <span class="cmt">← final MiMC circuit output</span><br>
+      <span class="cmt">Step 4b:</span> absorb(kdfChainCommit)    <span class="cmt">← Argon2id KDF chain commitment</span><br>
+      <span class="cmt">Step 5:</span>  absorb(trace_root)        <span class="cmt">← Merkle root of LDE trace</span><br>
+      <span class="cmt">Step 5b:</span> absorb(kdf_trace_root)    <span class="cmt">← Merkle root of KDF trace LDE</span><br>
+      <span class="cmt">Step 6:</span>  absorb(q_root)            <span class="cmt">← Merkle root of quotient LDE</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; friAlpha   ← challenge()  <span class="cmt">← linear combination challenge</span><br>
+      <span class="cmt">Step 7+i:</span> absorb(fri_roots[i]) → friAlphas[i] ← challenge()  <span class="op">for i=0..8</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; absorb(fri_final[0])<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [PoW grinding: find N s.t. SHA-256(state‖N)[0..23] = 0x000000]<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; absorb(powNonce)<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; r_k ← challenge()  <span class="op">for k=0..34</span>&nbsp;&nbsp;<span class="cmt">← query indices</span>
+    </div>
+  </div>
 
-        <div class="section-box">
-            <h3>STARK: Scalable Transparent Argument of Knowledge</h3>
-            <p>
-                A STARK is a <strong>zero-knowledge proof</strong> that proves a computation was performed correctly
-                without revealing the secrets involved. Our system uses STARK to prove:
-            </p>
-            <p style="font-style: italic; text-align: center; margin: 15px 0;">
-                "I computed hash(password) and received this output, without sending you the password"
-            </p>
+  <!-- SOUNDNESS -->
+  <div class="section">
+    <div class="section-label">§6 — Security Argument</div>
+    <div class="section-title">Soundness &amp; Concrete Security</div>
+    <table class="sec-table">
+      <thead>
+        <tr><th>Component</th><th>Contribution</th><th>Bits</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>FRI query soundness</td>
+          <td>Per-query error ≤ 2⁻⁵ (ρ = 1/32); 35 queries → 2⁻¹⁷⁵</td>
+          <td class="hl-green">175</td>
+        </tr>
+        <tr>
+          <td>Fiat-Shamir PoW grinding</td>
+          <td>2²⁴ SHA-256 work per forged proof attempt</td>
+          <td class="hl-green">+24</td>
+        </tr>
+        <tr>
+          <td>MiMC-7 algebraic security</td>
+          <td>220 rounds vs. ⌈log₇(p)⌉ ≈ 40 minimum → ×5 safety margin</td>
+          <td class="hl-green">+25–45</td>
+        </tr>
+        <tr>
+          <td>Argon2id memory-hardness</td>
+          <td>64 MB RAM required per hash → ASIC/GPU brute-force infeasible</td>
+          <td class="hl-sky">KDF layer</td>
+        </tr>
+        <tr>
+          <td>Timing-safe comparisons</td>
+          <td>All commitment checks use crypto.timingSafeEqual (Phase 3)</td>
+          <td class="hl-sky">Side-channel</td>
+        </tr>
+        <tr>
+          <td>Session replay prevention</td>
+          <td>server_challenge absorbed first; each proof bound to one login</td>
+          <td class="hl-sky">Protocol</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-            <h4>Computation Being Proven: MiMC-7 Hash</h4>
-            <p>The STARK proof embeds a complete execution trace of MiMC-7 (Minimal Multiplicative Complexity):</p>
-            <div class="math-block">
-MiMC-7(input):
-  x₀ = input
-  for i = 0 to 219:
-      xᵢ₊₁ = (xᵢ + key + Cᵢ)^7 mod p
-  return x₂₂₀
+</div><!-- /container -->
+</div><!-- /page-technical -->
 
-where:
-  p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-  Cᵢ = canonical round constants (256-bit field elements, nothing-up-my-sleeve)
-  ^7 = Frobenius exponent (highly nonlinear)
-  220 rounds = 5× security margin over algebraic/interpolation attacks
-            </div>
 
-            <p>
-                <strong>Why MiMC-7?</strong> It's optimized for zero-knowledge proofs — requires only ~220 
-                multiplications per evaluation, vs. SHA-256 which would require millions of bit operations.
-                220 rounds (raised from 128) gives a ×5 safety margin and +25–45 bits of concrete security
-                against interpolation and higher-order differential attacks.
-            </p>
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PAGE 3 — AUTH WORKFLOWS
+═══════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-workflows">
+<div class="container" style="padding-top:56px; padding-bottom:72px;">
+
+  <div class="section-label" style="padding-top:12px;">Auth Workflows — Pattern 2</div>
+  <h2 class="section-title" style="font-size:2rem;margin-bottom:8px;">From Password to Commitment</h2>
+  <p style="color:var(--text-2);max-width:720px;margin-bottom:12px;">
+    Step-by-step walkthrough of Pattern 2 — the primary auth mode — showing exactly how a
+    user's password is transformed into a stored commitment the server can verify,
+    without the password or Argon2id output ever leaving the client.
+  </p>
+
+  <div class="notice notice-sky" style="margin-bottom:32px;">
+    <strong>Key insight:</strong> The server stores <code>C = Poseidon(mimc_output, serverPepper)</code>.
+    The client proves (via STARK) that it knows a password whose Argon2id output, when run through
+    MiMC-7, produces <code>mimc_output</code>. The server then applies the pepper itself — the client
+    never computes or sees C.
+  </div>
+
+  <div class="workflow-tabs">
+    <button class="workflow-tab active" onclick="showWorkflow('register')">Registration</button>
+    <button class="workflow-tab"        onclick="showWorkflow('login')">Login</button>
+  </div>
+
+  <!-- ── REGISTRATION ──────────────────────────────────────────────────────── -->
+  <div class="workflow-pane active" id="wf-register">
+
+    <div class="step-chain">
+
+      <!-- Step 1 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
         </div>
-
-        <div class="section-box">
-            <h3>STARK Protocol Structure (Phase 2 — Full Security)</h3>
-            <div class="math-block">
-Phase 1: Commitment
-  ┌─ Trace Commitment (trace_root)
-  │   Prover commits to MiMC execution trace: [x₀, x₁, ..., x₂₂₀, padding...]
-  │   Using Merkle tree over low-degree extension (LDE, blowup=32)
-  │
-  ├─ KDF Trace Commitment (kdf_trace_root) [Phase 2 — Argon2id AIR]
-  │   Poseidon hash-chain of 64 steps: kdf[i+1] = Poseidon(kdf[i], roundKey_i)
-  │   kdf_chain_commit = Poseidon-fold of all 64 values
-  │   Binds Argon2id output to the circuit without heuristic trust
-  │
-  ├─ Quotient Commitment (q_root)
-  │   Encodes the AIR constraints: P(wz) = (P(z) + key + C)^7
-  │   Quotient: Q(z) = ConstraintError(z) / Vanishing(z)
-  │
-  └─ FRI Commitment (9 fri_roots)
-      Merkle roots of 9 FRI proof layers (blowup=32, log2(32)+1=9 folds max useful)
-
-Phase 2: Challenge (Fiat-Shamir with Session Binding)
-  ┌─ Server-Issued Challenge (Issue #2, step 0)
-  │  server_challenge = 256-bit random hex issued by /api/nonce
-  │
-  ├─ Fiat-Shamir: Derive random challenges from commitments
-  │  Transcript.absorb(server_challenge)      ← STEP 0  (Issue #2)
-  │  Transcript.absorb(nonce)                 ← STEP 1
-  │  Transcript.absorb(mimcKey)               ← STEP 2  (Issue #3)
-  │  Transcript.absorb(rc_commitment)         ← STEP 3
-  │  Transcript.absorb(mimc_output)           ← STEP 4  (Issue #1)
-  │  Transcript.absorb(kdf_chain_commit)      ← STEP 4b (Phase 2 — Argon2id AIR)
-  │  Transcript.absorb(trace_root)            ← STEP 5
-  │  Transcript.absorb(kdf_trace_root)        ← STEP 5b (Phase 2 — Argon2id AIR)
-  │  Transcript.absorb(q_root)                ← STEP 6
-  │  friAlpha = Transcript.challenge()
-  │  friAlphas[i] = Transcript.challenge()    ← for each of 9 FRI folds
-  │  Transcript.absorb(fri_final[0])
-  │
-  ├─ Fiat-Shamir Grinding PoW [Phase 2]
-  │  Prover finds pow_nonce such that:
-  │    SHA-256(state_96_bytes || pow_nonce)[0..3] < 2^(32-24) = 0x00000100
-  │  ~16M SHA-256 evaluations (~1–3s Node, ~5–15s browser); 2^24 work per proof.
-  │  Raised from 2^16 (65K ops, trivially GPU-parallelizable) for GPU/ASIC resistance.
-  │  pow_pregrind_state saved so verifier can check state was not substituted
-  │  Transcript.absorb(pow_nonce)             ← advances transcript post-PoW
-  │
-  └─ Query indices: idx₁, idx₂, ..., idx₃₅
-     From transcript, extract 35 random evaluation points (in LDE of size 8192)
-
-Phase 3: Response
-  ┌─ Query openings at 35 points:
-  │  - trace values: P(z), P(wz)
-  │  - quotient value: Q(z)
-  │  - KDF trace value: kdf(z)
-  │  - Merkle paths to prove inclusion
-  │
-  ├─ FRI proof: 9-fold folding down to constant
-  │  For each layer: show values + sibling + Merkle paths
-  │
-  └─ Boundary proof: trace[220 × 32] = mimc_output
-     With Merkle path
-
-Phase 4: Verification (Server-Side Binding Checks)
-  ┌─ Routing Layer: Validate server_challenge (Issue #2)
-  │  checkAndConsumeChallenge(server_challenge)
-  │  - Is this challenge issued by this server?
-  │  - Has it expired? (15-min TTL)
-  │  - Was it already used? (single-use enforcement)
-  │  If ANY check fails → REJECT
-  │
-  ├─ Verifier: Reconstruct Transcript (all Issues #1-#3)
-  │  Transcript.absorb(server_challenge)      ← same step 0
-  │  Transcript.absorb(nonce)
-  │  [For Argon2id: verify nonce == Poseidon(UTF-8(hash_encoded))]
-  │  [Verifier re-derives mimcKey (Issue #3)]
-  │  [Verifier re-computes mimic_output (Issue #1)]
-  │  [All Fiat-Shamir challenges must match]
-  │
-  ├─ Check AIR constraints at all 35 points
-  │  P(wz) = (P(z) + key + C)^7 + Q(z) * Z_vanishing(z)
-  │
-  ├─ Check KDF chain commitment (Argon2id AIR, 64 Poseidon steps)
-  │
-  ├─ Check PoW grinding: SHA-256(state||pow_nonce)[0..3] < 2^(32-24)
-  │  ~1 SHA-256 call for verifier; ~16M for honest prover
-  │  Verify pow_pregrind_state matches reconstructed transcript
-  │
-  ├─ Check FRI consistency: 9-fold folding protocol
-  │  Each layer: even + alpha * odd = next_folded_value
-  │
-  ├─ Check boundary: mimc_output ∈ committed trace at index 220×32
-  │
-  └─ Check pepper commitment: Poseidon(mimc_output, pepper) matches
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">User enters credentials</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The user types their username and password into the browser. The password
+            never leaves JavaScript memory — it is never serialised, logged, or sent over
+            the network at any point in this flow.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Example inputs</div>
+            <div class="math-block" style="margin:0;">
+              <span class="lhs">username</span> <span class="op">=</span> <span class="val">"alice"</span><br>
+              <span class="lhs">password</span> <span class="op">=</span> <span class="val">"correct-horse-battery-staple"</span><br>
+              <span class="cmt">          ↑ stays in JS memory only — never serialised</span>
             </div>
+          </div>
         </div>
+      </div>
 
-        <div class="section-box">
-            <h3>Proof Binding Mechanism with Session Challenge (Issue #2)</h3>
-            <p>
-                For bcrypt/argon2 proofs, the hash output is <strong>cryptographically bound</strong> to the STARK proof through a three-layer binding:
-            </p>
-            <div class="math-block">
-Three-Layer Binding (Issues #1, #2, #3):
-
-Layer 1: MiMC Re-Computation (Issue #1)
-  Verifier re-computes: expected_mimic_output = MiMC7(trace[0], mimcKey)
-  Check: expected_mimic_output == public_inputs.mimic_output
-  If mismatch → REJECT
-
-Layer 2: Server Challenge Binding (Issue #2)
-  Server issues: server_challenge = 256-bit random hex
-  Prover absorbs: Transcript.absorb(server_challenge) as STEP 0
-  Verifier reconstructs: same challenge from public_inputs.server_challenge
-  Check: Challenge present and matches issued value (routing layer)
-  If mismatch → REJECT
-
-Layer 3: mimcKey Re-Derivation (Issue #3)
-  Server re-derives: expected_key = HMAC-SHA256(nonce, serverSecret) mod p
-  Client provides: public_inputs.mimcKey_hint
-  Check (timing-safe): expected_key == mimcKey_hint
-  If mismatch → REJECT
-
-Pepper Commitment (Existing):
-  Verifier re-computes: pepper_commit = Poseidon(mimic_output, serverPepper)
-  Check: pepper_commit == public_inputs.pepper_commit
-  If mismatch → REJECT
-
-Attacker scenario:
-  To forge a valid proof, attacker must:
-  1. Tamper hash_encoded → nonce changes → all Merkle/FRI paths fail (Layer 6)
-  2. Tamper trace[0] → MiMC re-computation fails (Layer 1)
-  3. Reuse session → server rejects replayed challenge (Layer 2)
-  4. Forge mimcKey → server re-derives and detects (Layer 3)
-  5. Forge pepper_commit → mismatch detected (Pepper layer)
-  6. Skip PoW → pow_pregrind_state state check fails (PoW layer)
-  
-  All six layers are cryptographically independent. Attacker cannot bypass all six.
-            </div>
-
-            <p>
-                The server_challenge as <strong>step 0</strong> of the transcript means all downstream challenges depend on it:
-            </p>
-            <div class="math-block">
-Fiat-Shamir Transcript Reconstruction (Issue #2 at step 0):
-
-Prover Side:
-  Transcript.absorb(server_challenge)  ← step 0 (unique per session)
-  Transcript.absorb(nonce)             ← step 1 (trace[0])
-  Transcript.absorb(mimcKey)           ← step 2 (HMAC-derived, Issue #3)
-  Transcript.absorb(rc_commitment)     ← step 3
-  Transcript.absorb(mimic_output)      ← step 4 (Issue #1 proof target)
-  Transcript.absorb(trace_root)        ← step 5
-  Transcript.absorb(q_root)            ← step 6
-  friAlpha = Transcript.challenge()    ← depends on all above
-  
-Verifier Side:
-  [Routing layer first validates server_challenge]
-  Transcript.absorb(server_challenge)  ← same step 0
-  Transcript.absorb(nonce)             ← verify consistency
-  [Verifier re-derives mimcKey, checks it (Issue #3)]
-  Transcript.absorb(mimcKey)
-  Transcript.absorb(rc_commitment)
-  [Verifier re-computes mimic_output (Issue #1)]
-  Transcript.absorb(mimic_output)
-  Transcript.absorb(trace_root)        ← must match Merkle computation
-  Transcript.absorb(q_root)            ← must match quotient Merkle
-  friAlpha = Transcript.challenge()    ← must match prover's
-  
-If any step differs → friAlpha diverges → FRI proof verification fails
-            </div>
-
-            <div class="highlight">
-                <strong>Why server_challenge as step 0 is critical:</strong> Without it, a prover can generate one proof 
-                with a specific password and use it infinite times (same password → same nonce → same mimcKey → same transcript → same proof). 
-                With server_challenge as step 0, each session requires a different challenge value, which means:
-                <ul>
-                    <li>Each session has different Transcript.absorb(server_challenge)</li>
-                    <li>Therefore friAlpha is different for each session</li>
-                    <li>Therefore query indices are different</li>
-                    <li>Therefore the entire proof is different</li>
-                </ul>
-                A captured proof from session A is useless in session B (different challenges → different verification outcome).
-            </div>
+      <!-- Step 2 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
         </div>
-
-        <div class="section-box">
-            <h3>FRI (Fast Reed-Solomon Interactive Oracle Proofs)</h3>
-            <p>
-                FRI proves a polynomial has bounded degree using iterative folding:
-            </p>
-            <div class="math-block">
-Goal: Prove deg(H) ≤ 256 where H = P(x) + friAlpha * Q(x)
-
-Layer 0 (8192 points):
-  H₀(x) → commit to M₀ (Merkle tree)
-  Challenge: friAlpha₀
-  Fold: H₁(y) = (H₀(√y) + H₀(-√y))/2 + friAlpha₀ * (...)/(2√y)
-
-Layer 1 (4096 points):
-  H₁(y) → commit to M₁
-  Challenge: friAlpha₁
-  Fold: H₂(z) = ...
-
-... repeat 9 times ...
-
-Final (16 points):
-  H₉ = constant polynomial c
-  Verify: current_value == c
-
-Soundness: If H doesn't have bounded degree, folding cannot produce
-the correct constant. Probability attacker fools verifier ≈ (256/8192)^35 = 2^-175
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Fetch server challenge nonce</div>
+            <span class="step-where where-server">Server → Client</span>
+          </div>
+          <p class="step-desc">
+            The client calls <code>GET /api/nonce</code>. The server returns a freshly
+            generated 256-bit cryptographically random hex string. This nonce is absorbed
+            first into the Fiat-Shamir transcript, binding the entire proof to this specific
+            login session. Replaying the proof against a different session is impossible.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Server challenge (256-bit random hex)</div>
+            <div class="math-block" style="margin:0;">
+              <span class="lhs">serverChallenge</span> <span class="op">=</span> <span class="val">"a3f9b2...c4e1"</span> &nbsp;<span class="cmt">← 64 hex chars = 256 bits</span><br>
+              <span class="cmt">transcript.absorb(BigInt('0x' + serverChallenge) % p)  ← step 0</span>
             </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">3</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Generate Argon2id salt &amp; run KDF</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The client generates a 16-byte random salt using <code>crypto.getRandomValues</code>.
+            Argon2id is then run in-browser via WebAssembly with parameters at or above the
+            enforced floor (t ≥ 3, m ≥ 65 536 KB). The result is the full encoded string —
+            including the parameters and base64-encoded hash — which is used as the circuit witness.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Argon2id execution</div>
+            <div class="math-block" style="margin:0;">
+              <span class="lhs">salt</span> <span class="op">=</span> <span class="func">crypto.getRandomValues</span><span class="op">(16 bytes)</span> &nbsp;<span class="cmt">← unique per user</span><br>
+              <span class="lhs">result</span> <span class="op">=</span> <span class="func">Argon2id</span><span class="op">(password, salt, t=3, m=65536, p=4, hashLen=32)</span><br><br>
+              <span class="lhs">encodedStr</span> <span class="op">=</span> <span class="val">"$argon2id$v=19$m=65536,t=3,p=4$&lt;b64salt&gt;$&lt;b64hash&gt;"</span><br><br>
+              <span class="lhs">h₁</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(encodedStr))</span><br>
+              &nbsp;&nbsp; <span class="cmt">← chunk UTF-8 bytes into 31-byte limbs → Poseidon-absorb → single field element</span><br>
+              &nbsp;&nbsp; <span class="cmt">← h₁ ∈ 𝔽_p  (tamper-evident: any change to encodedStr → different h₁)</span><br><br>
+              <span class="lhs">nonce</span> <span class="op">=</span> h₁.toString() &nbsp;<span class="cmt">← used as MiMC key seed AND transcript step 1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">4</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Derive session MiMC key</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The MiMC encryption key is not fixed — it is derived fresh for each session using
+            HMAC-SHA256. The key material depends on both the hash witness (nonce) and the
+            server secret, making it unpredictable to an attacker who does not know the server
+            secret. The server independently re-derives this key during verification.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">HMAC key derivation (Fix #2)</div>
+            <div class="math-block" style="margin:0;">
+              <span class="lhs">mimcKey</span> <span class="op">=</span> <span class="func">HMAC-SHA256</span><span class="op">(</span>nonce, serverSecret<span class="op">) mod p</span><br>
+              <span class="cmt">           ↑ nonce = h₁.toString()  |  serverSecret from HSM/env var</span><br>
+              <span class="cmt">           ← 256-bit HMAC output reduced mod p → field element</span><br>
+              <span class="cmt">           ← session-specific: different every login, unpredictable without serverSecret</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">5</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Build MiMC-7 execution trace</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The prover builds a 256-row execution trace. The first row is the Argon2id
+            witness <code>h₁</code>. Each subsequent row applies one MiMC-7 step: add the
+            key and round constant, then raise to the 7th power. This is the computation
+            the STARK proof will certify.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">MiMC-7 trace (220 active rounds, 256 rows total)</div>
+            <div class="math-block" style="margin:0;">
+              trace<span class="op">[0]</span> <span class="op">=</span> h₁&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Argon2id witness (Fix #1)</span><br>
+              <span class="op">for</span> i = 0..219:<br>
+              &nbsp; t &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="op">(</span>trace<span class="op">[i]</span> <span class="op">+</span> mimcKey <span class="op">+</span> C<span class="op">[i]) mod p</span><br>
+              &nbsp; trace<span class="op">[i+1]</span> <span class="op">= t⁷ mod p</span><br><br>
+              <span class="lhs">mimc_output</span> <span class="op">= finalOutput</span> <span class="op">=</span> trace<span class="op">[220]</span>&nbsp;&nbsp;<span class="cmt">← public proof output</span><br><br>
+              <span class="cmt">Simultaneously, build the 64-row Argon2id KDF binding trace:</span><br>
+              kdfTrace<span class="op">[0]</span>   <span class="op">=</span> h₁<br>
+              kdfTrace<span class="op">[i+1]</span> <span class="op">=</span> <span class="func">Poseidon</span><span class="op">(</span>kdfTrace<span class="op">[i]</span>, <span class="op">(</span>mimcKey <span class="op">+</span> C<span class="op">[i mod 220]) mod p)</span><br>
+              kdfCommit &nbsp;&nbsp;&nbsp;&nbsp; <span class="op">=</span> <span class="func">Poseidon-fold</span><span class="op">(</span>kdfTrace<span class="op">[0..63])</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 6 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">6</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Low-Degree Extension &amp; Merkle commitments</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The 256-row trace is interpolated into a polynomial via inverse NTT, then
+            evaluated at 8 192 points (blowup factor 32). This "low-degree extension"
+            is committed to with a Merkle tree. The same is done for the quotient polynomial
+            and the KDF trace.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">LDE + Merkle commitments</div>
+            <div class="math-block" style="margin:0;">
+              polyP &nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">NTT⁻¹</span><span class="op">(trace)</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← polynomial over trace domain</span><br>
+              ldeP &nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">NTT</span><span class="op">(polyP.coeffs, size=8192)</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← evaluate on LDE domain (×32)</span><br>
+              treeP &nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">MerkleTree</span><span class="op">(ldeP)</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← trace commitment</span><br><br>
+              ldeQ &nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> constraint numerator / Z_T(x), each point&nbsp;<span class="cmt">← quotient LDE</span><br>
+              treeQ &nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">MerkleTree</span><span class="op">(ldeQ)</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← quotient commitment</span><br><br>
+              treeKDF &nbsp;<span class="op">=</span> <span class="func">MerkleTree</span><span class="op">(</span><span class="func">NTT</span><span class="op">(kdfTrace, size=8192))</span>&nbsp;<span class="cmt">← KDF trace commitment</span><br><br>
+              <span class="cmt">All roots absorbed into Fiat-Shamir transcript (steps 5, 5b, 6)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 7 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">7</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">FRI protocol — 9 folds</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The Fast Reed-Solomon IOP (FRI) protocol interactively reduces the claim that
+            the combined polynomial is low-degree. Each fold halves the domain size (8192 → 4096
+            → … → 16). Random folding challenges are drawn from the transcript after each Merkle
+            commitment, making the protocol non-interactive (Fiat-Shamir).
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">FRI fold formula (one round)</div>
+            <div class="math-block" style="margin:0;">
+              <span class="cmt">H = ldeP + friAlpha × ldeQ  ← linear combination to check</span><br><br>
+              <span class="op">for</span> i = 0..8 (9 folds):<br>
+              &nbsp; layer<span class="op">[i]</span> &nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">MerkleTree</span><span class="op">(currentLayer)</span><br>
+              &nbsp; alpha<span class="op">[i]</span> &nbsp;&nbsp;<span class="op">←</span> transcript.challenge()&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Fiat-Shamir</span><br>
+              &nbsp; nextLayer &nbsp;<span class="op">=</span> <span class="func">friFold</span><span class="op">(currentLayer, alpha[i], domainGen)</span><br>
+              &nbsp; &nbsp;&nbsp;<span class="cmt">P'(x²) = (P(x)+P(-x))/2 + α·(P(x)-P(-x))/(2x)</span><br>
+              &nbsp; domainGen &nbsp;<span class="op">=</span> domainGen² &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← advance generator for next domain</span><br><br>
+              finalPoly &nbsp;&nbsp;<span class="op">=</span> currentLayer &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← should be constant (degree-0)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 8 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">8</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Proof-of-Work grinding (2²⁴ work)</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            After all commitments are absorbed, the prover must find a 32-bit nonce N
+            such that the first 24 bits of SHA-256(transcriptState ‖ N) are zero. This
+            requires ~16 million SHA-256 evaluations on average, making it computationally
+            expensive to forge transcripts by trying different commitment sequences.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">PoW grinding condition</div>
+            <div class="math-block" style="margin:0;">
+              <span class="cmt">Find N ∈ [0, 2³²) such that:</span><br>
+              <span class="func">SHA-256</span><span class="op">(</span>serializeState<span class="op">(</span>s0, s1, s2<span class="op">) ‖</span> N_4bytes<span class="op">)[0..3]</span> <span class="op">&lt;</span> <span class="val">2^(32-24)</span><br>
+              <span class="cmt">i.e. first 24 bits of digest = 0x000000……</span><br><br>
+              <span class="cmt">Expected work: 2²⁴ ≈ 16.7M SHA-256 ops  (~1–3 s Node, ~5–15 s browser)</span><br>
+              <span class="lhs">pow_nonce</span> <span class="op">=</span> N &nbsp;&nbsp;<span class="cmt">← included in public_inputs; verifier checks independently</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 9 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">9</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Query phase — 35 random openings</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            The verifier challenges the prover with 35 random indices (drawn from the
+            transcript). At each index, the prover opens the trace polynomial, the quotient
+            polynomial, and all FRI layers with Merkle inclusion proofs. These openings form
+            the bulk of the proof blob.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Per-query opening (35 times)</div>
+            <div class="math-block" style="margin:0;">
+              <span class="op">for</span> k = 0..34:<br>
+              &nbsp; idx &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">←</span> transcript.challenge() <span class="op">mod</span> 8192<br>
+              &nbsp; p_val &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> ldeP<span class="op">[idx]</span> + Merkle path to trace_root<br>
+              &nbsp; p_next_val &nbsp;<span class="op">=</span> ldeP<span class="op">[(idx + 32) mod 8192]</span> + Merkle path<br>
+              &nbsp; q_val &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> ldeQ<span class="op">[idx]</span> + Merkle path to q_root<br>
+              &nbsp; kdf_val &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> ldeKDF<span class="op">[idx]</span> + Merkle path to kdf_trace_root<br>
+              &nbsp; fri_proof &nbsp;&nbsp;&nbsp;<span class="op">=</span> sibling + path for each of 9 FRI layers
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 10 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">10</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Send proof to server (no pepper_commit)</div>
+            <span class="step-where where-client">Client → Server</span>
+          </div>
+          <p class="step-desc">
+            The complete proof is POSTed to <code>/api/p2/register</code>. Crucially, in Pattern 2,
+            <code>pepper_commit</code> is <em>absent</em> from <code>public_inputs</code>.
+            The client never computed it. <code>mimc_output</code> is present as a public output
+            of the circuit.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">public_inputs (Pattern 2 — pepper_commit omitted)</div>
+            <div class="math-block" style="margin:0;">
+              <span class="op">{</span><br>
+              &nbsp; nonce:             h₁.toString(),&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← hashWitness</span><br>
+              &nbsp; server_challenge:  <span class="val">"a3f9b2...c4e1"</span>,<br>
+              &nbsp; mimc_key_hint:     mimcKey.toString(),<br>
+              &nbsp; mimc_output:       trace<span class="op">[220]</span>.toString(),&nbsp;&nbsp;<span class="cmt">← public output</span><br>
+              &nbsp; rc_commitment:     ...,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Poseidon fold of C[0..219]</span><br>
+              &nbsp; trace_root:        ...,<br>
+              &nbsp; kdf_trace_root:    ...,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Argon2id AIR commitment</span><br>
+              &nbsp; kdf_chain_commit:  ...,<br>
+              &nbsp; q_root:            ...,<br>
+              &nbsp; fri_roots:         <span class="op">[</span>9 roots<span class="op">]</span>,<br>
+              &nbsp; fri_final:         <span class="op">[...]</span>,<br>
+              &nbsp; pow_nonce:         N,<br>
+              &nbsp; hash_encoded:      <span class="val">"$argon2id$v=19$..."</span>,<br>
+              &nbsp; <span class="cmt">// pepper_commit: ABSENT — server computes this independently</span><br>
+              <span class="op">}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 11 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">11</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Server verifies STARK proof</div>
+            <span class="step-where where-server">Server</span>
+          </div>
+          <p class="step-desc">
+            The server's <code>ZKVerifier.verify(proof, {skipPepperCheck: true})</code>
+            performs a complete STARK verification: re-derives mimcKey, replays the transcript,
+            checks all Merkle paths, verifies the AIR constraint at all 35 query indices,
+            checks FRI consistency across all 9 folds, and validates the PoW nonce.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Server-side verification checks</div>
+            <div class="math-block" style="margin:0;">
+              <span class="cmt">A. Re-derive mimcKey server-side:</span><br>
+              &nbsp; expected_key <span class="op">=</span> <span class="func">HMAC-SHA256</span><span class="op">(</span>nonce, serverSecret<span class="op">) mod p</span><br>
+              &nbsp; assert expected_key <span class="op">===</span> mimc_key_hint &nbsp;&nbsp;<span class="cmt">← client cannot lie</span><br><br>
+              <span class="cmt">B. Replay Fiat-Shamir transcript → recompute all challenges</span><br><br>
+              <span class="cmt">C. At each query idx (×35):</span><br>
+              &nbsp; check Merkle(trace_root, idx, p_val, p_path)<br>
+              &nbsp; check Merkle(q_root, idx, q_val, q_path)<br>
+              &nbsp; check AIR: p_next_val <span class="op">==</span> <span class="op">(</span>p_val <span class="op">+</span> mimcKey <span class="op">+</span> c_val<span class="op">)⁷ +</span> q_val × Z_T(z)<br>
+              &nbsp; check FRI consistency across 9 layers + Merkle paths<br><br>
+              <span class="cmt">D. hash_encoded binding: re-derive expectedNonce = hashBytesToWitness(UTF8(hash_encoded))</span><br>
+              &nbsp; assert timingSafeEqual(expectedNonce, nonce)<br><br>
+              <span class="cmt">E. MiMC re-computation: server runs full 220-round MiMC from trace[0]=nonce with</span><br>
+              &nbsp; server-derived mimcKey; asserts result == mimc_output (closes witness substitution)<br><br>
+              <span class="cmt">F. KDF chain re-derivation: server re-derives kdfChainCommit, asserts == kdf_chain_commit</span><br><br>
+              <span class="cmt">G. Boundary path: Merkle.verify(trace_root, idx=MIMC_ROUNDS×BLOWUP, mimc_output, path)</span><br><br>
+              <span class="cmt">H. Validate PoW: SHA-256(state ‖ pow_nonce)[0..23] == 0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 12 -->
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">12</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Server computes &amp; stores commitment C</div>
+            <span class="step-where where-server">Server</span>
+          </div>
+          <p class="step-desc">
+            After proof verification succeeds, the routing layer calls
+            <code>verifyPepperCommitP2</code>. During registration, the server
+            computes C and stores it alongside the username and Argon2id salt.
+            The pepper is read from the server environment (HSM in production).
+            The client never sees this value.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Commitment computation &amp; storage (server-only)</div>
+            <div class="math-block" style="margin:0;">
+              serverPepper &nbsp;<span class="op">=</span> <span class="func">process.env.ZK_SERVER_PEPPER</span>&nbsp;&nbsp;<span class="cmt">← HSM in production</span><br>
+              pepperField &nbsp;&nbsp;<span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span>serverPepper<span class="op">))</span><br><br>
+              <span class="lhs">C</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">Poseidon</span><span class="op">([</span>mimc_output, pepperField<span class="op">])</span><br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← C is what gets stored in the database</span><br><br>
+              DB.store<span class="op">({</span> username, C, salt, argon2_params <span class="op">})</span><br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← server stores C (not h₁, not mimc_output directly)</span>
+            </div>
+          </div>
+          <div class="notice notice-green" style="margin-top:14px;">
+            <strong>Why Poseidon(mimc_output, pepper)?</strong> Even if an attacker steals
+            the database, they see only <code>C</code>. To reverse it they need both
+            <code>mimc_output</code> (requires running MiMC on Argon2id output) and the pepper
+            (server secret). Brute-forcing requires running Argon2id + MiMC-7 per password guess.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /step-chain -->
+  </div><!-- /wf-register -->
+
+  <!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
+  <div class="workflow-pane" id="wf-login">
+
+    <div class="notice notice-sky" style="margin-bottom:32px;">
+      Login reuses the same STARK proof machinery. The key difference: the Argon2id salt
+      is fetched from the server (it was stored at registration) so the client can reproduce
+      the exact same <code>h₁</code> from the same password.
     </div>
 
-    <!-- TAB: Security & Soundness -->
-    <div id="security" class="tab-content">
-        <h2>Security Analysis & Soundness</h2>
+    <div class="step-chain">
 
-        <div class="section-box">
-            <h3>Threat Model</h3>
-            <ul>
-                <li>
-                    <strong>Attacker Goal:</strong> Log in as a user without knowing the password
-                </li>
-                <li>
-                    <strong>Attack Surface 1:</strong> Forge a valid STARK proof (impossible)
-                </li>
-                <li>
-                    <strong>Attack Surface 2:</strong> Tamper with proof fields (hash, mimc_output, queries)
-                </li>
-                <li>
-                    <strong>Attack Surface 3:</strong> Guess password by trying many hashes (hard due to client-side cost)
-                </li>
-                <li>
-                    <strong>Honest Server Assumption:</strong> Server correctly implements verifier algorithm
-                </li>
-            </ul>
+      <div class="step">
+        <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Fetch server challenge nonce</div>
+            <span class="step-where where-server">Server → Client</span>
+          </div>
+          <p class="step-desc">
+            Identical to registration: the client calls <code>GET /api/nonce</code> and receives
+            a fresh 256-bit challenge. This is the first value absorbed into the Fiat-Shamir
+            transcript, preventing replay of a previously valid proof.
+          </p>
         </div>
+      </div>
 
-        <div class="section-box">
-            <h3>Soundness Guarantees (Security Hardening — All Phases)</h3>
-            <table class="comparison-table">
-                <tr>
-                    <th>Attack</th>
-                    <th>Mechanism</th>
-                    <th>Security Level</th>
-                    <th>Phase</th>
-                </tr>
-                <tr>
-                    <td><strong>Forge STARK proof</strong><br/>(wrong trace)</td>
-                    <td>
-                        AIR constraint check at 35 random points.<br/>
-                        Each query: (deg / domain_size) = 256/8192 = 2<sup>-5</sup> soundness error.<br/>
-                        Total: (1/32)<sup>35</sup> = 2<sup>-175</sup> ✓<br/>
-                        Blowup factor 32 (raised from 8) adds +5–15 bits soundness.
-                    </td>
-                    <td>2<sup>175</sup> statistical</td>
-                    <td>Core</td>
-                </tr>
-                <tr>
-                    <td><strong>Forge FRI proof</strong><br/>(bounded degree)</td>
-                    <td>
-                        9-layer FRI folding (raised from 8).<br/>
-                        Attacker must match 9 random linear combinations.<br/>
-                        Probability: 2<sup>-175</sup> per aggregate over all queries.
-                    </td>
-                    <td>2<sup>175</sup> statistical</td>
-                    <td>Core</td>
-                </tr>
-                <tr>
-                    <td><strong>MiMC algebraic / interpolation attack</strong></td>
-                    <td>
-                        220 rounds of MiMC-7 (raised from 128).<br/>
-                        Standard security estimate: rounds ≥ log<sub>7</sub>(p) ≈ 40.<br/>
-                        220 rounds = 5× margin; adds +25–45 concrete bits.
-                    </td>
-                    <td>+25–45 bits</td>
-                    <td>Phase 2</td>
-                </tr>
-                <tr>
-                    <td><strong>Fiat-Shamir grinding / lucky-challenge attack</strong></td>
-                    <td>
-                        Prover must find SHA-256 PoW nonce (2<sup>24</sup> expected evaluations, ~1–3s Node) before any query challenges are drawn.<br/>
-                        Raised from 2<sup>16</sup> (65K ops — trivially GPU/ASIC-parallelizable) to 2<sup>24</sup> for practical ASIC resistance.<br/>
-                        Verifier checks pow_pregrind_state matches the reconstructed transcript, preventing state substitution.<br/>
-                        Native/WASM prover: raise to 2<sup>32</sup>–2<sup>40</sup> for full resistance.
-                    </td>
-                    <td>+24 bits (JS demo)<br/>+32–40 bits (native)</td>
-                    <td>Phase 2</td>
-                </tr>
-                <tr>
-                    <td><strong>Argon2id bypass / heuristic witness</strong></td>
-                    <td>
-                        A 64-step Poseidon hash-chain (kdf_chain_commit) is committed in the proof and re-derived server-side from nonce + mimcKey.<br/>
-                        Replaces heuristic "trace[0] is the witness" with a full AIR commitment verifiable without trusting the client.<br/>
-                        Raises concrete binding from heuristic to algebraic.
-                    </td>
-                    <td>Removes heuristic gap</td>
-                    <td>Phase 2</td>
-                </tr>
-                <tr>
-                    <td><strong>Tamper mimc_output</strong></td>
-                    <td>
-                        Verifier re-computes MiMC-7 from trace[0] to mimc_output (220 rounds).<br/>
-                        Changing trace[0] → different nonce → different friAlpha → proof fails.
-                    </td>
-                    <td>Perfect</td>
-                    <td>#1</td>
-                </tr>
-                <tr>
-                    <td><strong>Replay proof across sessions</strong></td>
-                    <td>
-                        Server issues unique 256-bit challenge per session.<br/>
-                        Challenge is step 0 of transcript.<br/>
-                        Single-use enforcement (checkAndConsumeChallenge).<br/>
-                        Captured proof tied to old challenge → rejected in new session.
-                    </td>
-                    <td>Perfect</td>
-                    <td>#2</td>
-                </tr>
-                <tr>
-                    <td><strong>Forge or substitute mimcKey</strong></td>
-                    <td>
-                        Server re-derives: expected_key = HMAC-SHA256(nonce, secret).<br/>
-                        Timing-safe comparison against public_inputs.mimcKey_hint.<br/>
-                        Attacker doesn't know ZK_SERVER_SECRET; cannot forge key.
-                    </td>
-                    <td>2<sup>256</sup> (HMAC-SHA256)</td>
-                    <td>#3</td>
-                </tr>
-                <tr>
-                    <td><strong>Leak plaintext hash</strong></td>
-                    <td>
-                        Plaintext hash removed from public_inputs.<br/>
-                        Proof uses nonce = Poseidon(hashBytesToWitness(hash)) (irreversible).<br/>
-                        Privacy maintained; security via 5-layer binding.
-                    </td>
-                    <td>Privacy</td>
-                    <td>#4</td>
-                </tr>
-                <tr>
-                    <td><strong>Offline password guessing</strong></td>
-                    <td>
-                        Must: (1) compute Argon2 (~500ms), (2) generate proof (~3s incl. PoW).<br/>
-                        Per guess: ~3.5 seconds (vs. traditional: ~100ms).<br/>
-                        35× slower per attempt; combined with server-side rate limiting.
-                    </td>
-                    <td>Practical</td>
-                    <td>N/A</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="section-box">
-            <h3>Security Layer Dependencies (All Phases)</h3>
-            <p>
-                Each layer addresses a different attack surface. Together they form a defense-in-depth:
-            </p>
-            <div class="math-block">
-Attack: "I'll forge a valid proof for a different password"
-
-Layer 1 (Issue #1 — MiMC re-computation, 220 rounds):
-  Attacker: "I'll generate a proof but use a different trace[0]"
-  Defense: Verifier re-computes MiMC-7 (220 rounds) from trace[0]
-           trace[0] ≠ real hash → MiMC output differs → REJECT
-
-Layer 2 (Issue #2 — Server challenge binding):
-  Attacker: "I'll replay a proof from a previous session"
-  Defense: Server issues unique 256-bit challenge per session, single-use
-           Captured proof tied to old challenge → REJECT in new session
-
-Layer 3 (Issue #3 — mimcKey re-derivation):
-  Attacker: "I'll substitute a different mimcKey"
-  Defense: Server re-derives key from nonce using server secret
-           Client cannot forge this key (doesn't know secret) → REJECT
-
-Layer 4 (Pepper commitment — existing):
-  Attacker: "I'll tamper with mimc_output value itself"
-  Defense: pepper_commit = Poseidon(mimc_output, serverPepper)
-           Attacker doesn't know serverPepper → REJECT
-
-Layer 5 (Phase 2 — Argon2id AIR chain, 64-step Poseidon):
-  Attacker: "I'll skip running Argon2id and substitute a fake witness"
-  Defense: Server re-derives kdf_chain_commit from nonce + mimcKey
-           Fake witness produces different chain → kdf_chain_commit mismatch → REJECT
-
-Layer 6 (Phase 2 — Fiat-Shamir grinding, 2^24 SHA-256 PoW):
-  Attacker: "I'll search for a lucky challenge that makes the proof easy"
-  Defense: Prover must commit pow_nonce before query indices are revealed.
-           2^24 SHA-256 ops per proof attempt — GPU/ASIC still costs ~16M hashes.
-           Raised from 2^16 (65K, trivially parallelizable) for practical resistance.
-           Verifier checks pow_pregrind_state matches its own transcript state.
-           Substituting a different state to find a cheap PoW is detected → REJECT
-
-Layer 7 (Phase 2 — hash_encoded binding):
-  Attacker: "I'll change the displayed hash_encoded string in the proof"
-  Defense: Verifier re-derives nonce = Poseidon(UTF-8(hash_encoded)) and compares
-           to public_inputs.nonce. Any change in hash_encoded changes nonce,
-           diverges the entire Fiat-Shamir transcript, and breaks all 35 Merkle paths.
-           → REJECT with "hash_encoded binding check failed"
-
-Result: Attacker must break ALL SIX layers to forge a proof
-        Each layer is cryptographically independent
-        No single point of failure
+      <div class="step">
+        <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Retrieve Argon2id salt from server</div>
+            <span class="step-where where-server">Server → Client</span>
+          </div>
+          <p class="step-desc">
+            The client calls <code>GET /api/p2/salt/:username</code>. The server returns
+            the Argon2id salt and parameters that were stored at registration. The salt is
+            public — knowing it without the password yields nothing.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Server response</div>
+            <div class="math-block" style="margin:0;">
+              <span class="op">{</span> success: true, salt: <span class="val">"&lt;16-byte hex&gt;"</span>, argon2_params: <span class="op">{</span> time: 3, mem: 65536, hashLen: 32 <span class="op">} }</span>
             </div>
+          </div>
         </div>
+      </div>
 
-        <div class="section-box">
-            <h3>Concrete Security Parameters</h3>
-            <div class="math-block">
-Field: BN254 scalar field
-  p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-  |p| ≈ 254 bits
-
-Trace Parameters:
-  MIMC_ROUNDS = 220      ← raised from 128 (+25–45 bits MiMC algebraic security)
-  TRACE_SIZE  = 256      (power of 2, NTT-aligned)
-  BLOWUP      = 32       ← raised from 8  (+5–15 bits FRI soundness)
-  LDE_SIZE    = 8192
-
-FRI Parameters:
-  Folds:   9   (8192 → 4096 → 2048 → 1024 → 512 → 256 → 128 → 64 → 32 → 16)
-  Queries: 35  ← reduced from 50 (tighter blowup compensates; soundness 2^-175)
-  Per-query error: (256 / 8192) = 2^-5
-  Aggregate error: (2^-5)^35 = 2^-175  ✓
-
-Argon2id AIR Binding (Phase 2):
-  KDF_CHAIN_LEN = 64 Poseidon-3 steps
-  kdf_chain_commit = Poseidon-fold of all 64 trace values
-  Verifier re-derives chain independently from nonce + mimcKey
-  Removes heuristic "trace[0] is the witness" assumption
-
-Fiat-Shamir Grinding (Phase 2):
-  Algorithm: SHA-256(state_96_bytes || nonce_4_bytes)[0..3] < 2^(32-POW_BITS)
-  POW_BITS = 24 (JS demo)  → ~16M SHA-256 evaluations, ~1–3s Node / ~5–15s browser
-  POW_BITS = 32 (native)   → ~4B SHA-256 evaluations, ~1–4 s
-  Raised from 16 (65K ops, trivially GPU-parallelizable) to 24 for ASIC/GPU resistance
-  Verifier: single SHA-256 call (O(1) cost, no slowdown)
-
-Poseidon Hash (Transcript + Merkle):
-  t = 3 (width), R_F = 8 (full rounds), R_P = 57 (partial rounds)
-  Collision resistance: 2^127 (birthday bound on 254-bit output)
-
-Overall Soundness: min(2^175, 2^127, 2^128) = 2^127 ≈ 10^38
-  (Poseidon birthday bound is the limiting factor — upgrade to 2^128 target
-   by switching to Poseidon-2 with R_P=83, or to Rescue-Prime / Griffin)
+      <div class="step">
+        <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Re-derive h₁ with the same Argon2id params</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            Argon2id is a deterministic function: given the same password, salt, and parameters,
+            it always produces the same output. The client re-runs Argon2id with the retrieved salt
+            to reproduce the exact <code>h₁</code> that was used during registration.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Deterministic re-derivation</div>
+            <div class="math-block" style="margin:0;">
+              <span class="lhs">h₁</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span><span class="func">Argon2id</span><span class="op">(</span>password, same_salt, same_params<span class="op">)</span>.encoded<span class="op">))</span><br>
+              <span class="cmt">← identical to registration h₁ iff correct password + same salt/params</span>
             </div>
+          </div>
         </div>
+      </div>
 
-        <div class="section-box">
-            <h3>Post-Quantum Considerations</h3>
-            <p>
-                STARKs are <strong>quantum-resistant</strong> (unlike SNARK curves which use discrete log).
-                The security comes from:
-            </p>
-            <ul>
-                <li><strong>AIR constraints:</strong> Low-degree polynomial evaluation (no quantum speedup)</li>
-                <li><strong>FRI folding:</strong> Polynomial commitment via Merkle trees (hash-based, quantum-safe)</li>
-                <li><strong>Merkle trees:</strong> Built on Poseidon (sponge construction, no known quantum vulnerabilities)</li>
-                <li><strong>SHA-256 PoW:</strong> Grover's algorithm halves effective bits (24→12 bits quantum) — raise to 32–48 bits in post-quantum deployment</li>
-            </ul>
-            <p>
-                Even if quantum computers arrive, the core STARK soundness remains secure (unlike RSA, ECDSA, pairing-based SNARKs).
-                The PoW grinding (currently 2<sup>24</sup>) should be doubled to 2<sup>32+</sup> in native/WASM code to account for Grover speedup.
-            </p>
+      <div class="step">
+        <div class="step-left"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Generate STARK proof (identical flow)</div>
+            <span class="step-where where-client">Client</span>
+          </div>
+          <p class="step-desc">
+            Steps 4–9 of registration repeat identically: derive mimcKey, build MiMC trace,
+            LDE, Merkle trees, FRI folds, PoW grinding, and query openings. The resulting
+            <code>mimc_output = trace[220]</code> will match the registration value only
+            if <code>h₁</code> is the same — which happens only if the password is correct.
+          </p>
         </div>
+      </div>
 
-        <div class="section-box">
-            <h3>🆕 Phase 2 Security Upgrades Summary</h3>
-            <table class="comparison-table">
-                <tr>
-                    <th>Parameter / Feature</th>
-                    <th>Before</th>
-                    <th>After (Phase 2)</th>
-                    <th>Security Gain</th>
-                </tr>
-                <tr>
-                    <td><strong>MiMC rounds</strong></td>
-                    <td>128</td>
-                    <td><strong>220</strong></td>
-                    <td>+25–45 bits (algebraic/interpolation attacks)</td>
-                </tr>
-                <tr>
-                    <td><strong>Blowup factor</strong></td>
-                    <td>8</td>
-                    <td><strong>32</strong></td>
-                    <td>+5–15 bits FRI soundness</td>
-                </tr>
-                <tr>
-                    <td><strong>FRI query count</strong></td>
-                    <td>50</td>
-                    <td><strong>35</strong></td>
-                    <td>Soundness 2<sup>-175</sup> (tighter blowup compensates)</td>
-                </tr>
-                <tr>
-                    <td><strong>FRI folds</strong></td>
-                    <td>8</td>
-                    <td><strong>9</strong></td>
-                    <td>Matches log₂(LDE_SIZE/TRACE_SIZE)</td>
-                </tr>
-                <tr>
-                    <td><strong>Fiat-Shamir grinding (PoW)</strong></td>
-                    <td>None (then 2<sup>16</sup>)</td>
-                    <td><strong>SHA-256, 2<sup>24</sup> work (JS) / 2<sup>32</sup> (native)</strong></td>
-                    <td>+24 bits; GPU/ASIC-resistant (raised from 2<sup>16</sup>)</td>
-                </tr>
-                <tr>
-                    <td><strong>Argon2id AIR binding</strong></td>
-                    <td>Heuristic (trace[0] only)</td>
-                    <td><strong>64-step Poseidon chain, server re-derived</strong></td>
-                    <td>Removes heuristic gap; algebraic binding</td>
-                </tr>
-                <tr>
-                    <td><strong>hash_encoded tamper resistance</strong></td>
-                    <td>None (display-only field, not verified)</td>
-                    <td><strong>nonce = Poseidon(UTF-8(hash_encoded)); verifier checks</strong></td>
-                    <td>Any edit breaks transcript → all 35 Merkle/FRI paths fail</td>
-                </tr>
-                <tr>
-                    <td><strong>Overall soundness</strong></td>
-                    <td>2<sup>127</sup></td>
-                    <td><strong>2<sup>127</sup> + Phase 2 layers</strong></td>
-                    <td>Multiple independent hardening layers</td>
-                </tr>
-            </table>
+      <div class="step">
+        <div class="step-left"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Server verifies STARK proof</div>
+            <span class="step-where where-server">Server</span>
+          </div>
+          <p class="step-desc">
+            The server runs the full STARK verifier (<code>verify(proof, {skipPepperCheck: true})</code>),
+            confirming that the proof is structurally valid and internally consistent. This proves the
+            client ran Argon2id and MiMC correctly, producing the stated <code>mimc_output</code>.
+          </p>
         </div>
-    </div>
+      </div>
 
-    <!-- TAB: Server Storage -->
-    <div id="server" class="tab-content">
-        <h2>Server-Side Storage &amp; Validation</h2>
+      <div class="step">
+        <div class="step-left"><div class="step-num">6</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Server verifies pepper commitment</div>
+            <span class="step-where where-server">Server</span>
+          </div>
+          <p class="step-desc">
+            After the STARK is verified, <code>verifyPepperCommitP2(mimc_output, storedC)</code>
+            is called. The server recomputes <code>Poseidon(mimc_output, serverPepper)</code> and
+            compares it — using timing-safe equality — to the stored commitment C. If they match,
+            authentication succeeds.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label">Final credential binding check</div>
+            <div class="math-block" style="margin:0;">
+              storedC &nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> DB.lookup<span class="op">(</span>username<span class="op">)</span>.C<br>
+              pepperField &nbsp;<span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span>serverPepper<span class="op">)</span><br>
+              computed &nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">Poseidon</span><span class="op">([</span>mimc_output, pepperField<span class="op">])</span><br><br>
+              assert <span class="func">timingSafeEqual</span><span class="op">(</span>computed, storedC<span class="op">)</span>&nbsp;&nbsp;<span class="cmt">← ✓ login granted</span><br>
+              <span class="cmt">← mismatch means wrong password, tampered proof, or different user</span>
+            </div>
+          </div>
+          <div class="notice notice-green" style="margin-top:14px;">
+            <strong>Security closure:</strong> An attacker who can forge a STARK proof but does not
+            know the correct password will produce a <code>mimc_output</code> that differs from the
+            registered value. The pepper check will fail. The STARK proof and the pepper check are
+            independent security layers — both must pass.
+          </div>
+        </div>
+      </div>
 
-        <div class="section-box">
-            <h3>Database Schema</h3>
-            <div class="math-block">
-table users {
-  id: UUID (primary key)
-  username: VARCHAR(255) unique
-  email: VARCHAR(255)
-  hash: VARCHAR(255)  ← Bcrypt/Argon2 output
-  algorithm: ENUM('bcrypt', 'argon2id')
-  proof_hash: VARCHAR(64)  ← SHA-256 of original STARK proof
-  proof_params: JSON  ← For argon2: {time, mem, hashLen}
-  created_at: TIMESTAMP
-  last_login: TIMESTAMP
+    </div><!-- /step-chain login -->
+  </div><!-- /wf-login -->
+
+</div><!-- /container -->
+</div><!-- /page-workflows -->
+
+<!-- ── FOOTER ──────────────────────────────────────────────────────────────── -->
+<footer>
+  ZK-AUTH — STARK + FRI + ARGON2ID · PATTERN 2 · 2¹²⁸ SECURITY TARGET · DOCS v1.0
+</footer>
+
+<script>
+// ── Page navigation ──────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-table audit_log {
-  id: UUID
-  user_id: UUID
-  action: ENUM('login_success', 'login_failure', 'register')
-  proof_verified: BOOLEAN
-  hash_matched: BOOLEAN
-  timestamp: TIMESTAMP
-  ip_address: VARCHAR(45)
+// ── Workflow tabs ────────────────────────────────────────────────────────────
+function showWorkflow(name) {
+  document.querySelectorAll('.workflow-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.workflow-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('wf-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
 }
-            </div>
+</script>
 
-            <div class="highlight">
-                <strong>What's NOT stored:</strong>
-                <ul>
-                    <li>❌ Password (never transmitted)</li>
-                    <li>❌ Full STARK proof (too large, verified once and discarded)</li>
-                    <li>❌ Private/secret information</li>
-                </ul>
-                <br/>
-                <strong>What IS stored:</strong>
-                <ul>
-                    <li>✅ Hash (proves proof was about correct computation)</li>
-                    <li>✅ Proof hash (audit trail, replay detection)</li>
-                    <li>✅ Algorithm metadata (reproducibility)</li>
-                    <li>✅ Verification timestamps (security events)</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Verification Process on Server</h3>
-            <div class="flow-diagram">
-Input: {hash, proof}
-
-Step 1: Hash-Nonce Binding Check (NEW FIX)
-  expected_nonce = padded_hex(hash)
-  if proof.public_inputs.nonce != expected_nonce:
-    return 400 Bad Request
-    
-Step 2: STARK Proof Verification
-  result = verifier.verify(proof)
-  if !result.success:
-    return 400 Bad Request
-  
-  Checks:
-    ✓ Nonce consistency
-    ✓ Round-constant commitment
-    ✓ hash_encoded binding (Argon2id): nonce == Poseidon(UTF-8(hash_encoded))
-    ✓ Boundary constraint (hash ∈ trace)
-    ✓ MiMC re-computation (220 rounds)
-    ✓ KDF chain commitment (64-step Poseidon, Argon2id AIR binding)
-    ✓ Fiat-Shamir PoW grinding (pow_nonce + pow_pregrind_state, 2^24 work)
-    ✓ AIR constraints (35 points, blowup=32)
-    ✓ FRI folding (9 layers)
-    ✓ Merkle path integrity
-    ✓ Pepper commitment
-    ✓ No tampering detected
-
-Step 3: Hash Storage & Lookup
-  stored_hash = db.users.find_by_username(username).hash
-  
-  if hash == stored_hash:
-    return 200 OK (login success)
-  else:
-    return 401 Unauthorized (wrong password)
-    
-Step 4: Audit Log
-  log_event({
-    user_id,
-    action: 'login',
-    proof_verified: true,
-    hash_matched: (hash == stored_hash),
-    timestamp: now
-  })
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Replay Attack Prevention</h3>
-            <p>
-                Can an attacker capture a valid login proof and replay it?
-            </p>
-            <div class="highlight">
-                <strong>Answer: No (with proper session management)</strong>
-                <ul>
-                    <li>
-                        The proof is tied to the <strong>hash</strong> of the password, not the password itself.
-                    </li>
-                    <li>
-                        The hash is <strong>deterministic</strong> — same password → same hash.
-                    </li>
-                    <li>
-                        A captured proof can be replayed to log in as that user (from any network).
-                    </li>
-                    <li>
-                        <strong>Solution:</strong> Use nonce binding or one-time proofs:
-                        <ul>
-                            <li>Include server-generated nonce in proof: <code>proof_nonce = H(server_random || timestamp)</code></li>
-                            <li>Or: Include timestamp in STARK nonce, reject proofs older than 60 seconds</li>
-                            <li>Or: Use typical session tokens after proof succeeds (user logs in once, session persists)</li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Database Breach Scenario</h3>
-            <p>
-                What if the hash database is stolen?
-            </p>
-            <ul>
-                <li>
-                    <strong>Attack:</strong> Attacker has {username: "alice", hash: bcrypt_output}
-                </li>
-                <li>
-                    <strong>Goal:</strong> Generate a valid proof for alice's account
-                </li>
-                <li>
-                    <strong>Problem:</strong> Generating a proof requires knowing the password (or brute-forcing it).
-                    The attacker has the hash but not the password.
-                </li>
-                <li>
-                    <strong>Cost:</strong> Argon2(mem=1GB, time=1) takes ~500ms to compute once
-                    (attacker has to compute it once they guess the password to get the proof).
-                    This is expensive for large-scale attacks.
-                </li>
-                <li>
-                    <strong>Conclusion:</strong> Breach is bad but not catastrophic. The hash is still useful for password
-                    checking (with Argon2 cost), but doesn't allow instant account takeover.
-                </li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- TAB: Client-Side Efficiency Benefits -->
-    <div id="efficiency" class="tab-content">
-        <h2>Client-Side Computation Benefits</h2>
-
-        <div class="section-box">
-            <h3>Server Resource Savings</h3>
-            <p>
-                Traditional password authentication vs. STARK-based system:
-            </p>
-            <table class="comparison-table">
-                <tr>
-                    <th>Operation</th>
-                    <th>Traditional</th>
-                    <th>STARK-Based</th>
-                    <th>Savings</th>
-                </tr>
-                <tr>
-                    <td><strong>Registration:</strong> Hash password</td>
-                    <td>Server: Argon2(1GB, 1s)</td>
-                    <td>Client: Argon2(1GB, 1s)</td>
-                    <td>✅ Server CPU & RAM</td>
-                </tr>
-                <tr>
-                    <td><strong>Registration:</strong> Verify computation</td>
-                    <td>N/A (assumed honest)</td>
-                    <td>Server: STARK verify (200ms)</td>
-                    <td>✅ Cryptographic guarantee</td>
-                </tr>
-                <tr>
-                    <td><strong>Login:</strong> Verify password</td>
-                    <td>Server: bcrypt_verify(~100ms)</td>
-                    <td>Server: STARK verify (200ms)</td>
-                    <td>⚠️ 2x slower, but see below</td>
-                </tr>
-                <tr>
-                    <td><strong>Password Reset:</strong> Re-hash</td>
-                    <td>Server: Argon2(1GB, 1s)</td>
-                    <td>Client: Argon2(1GB, 1s)</td>
-                    <td>✅ Server CPU & RAM</td>
-                </tr>
-                <tr>
-                    <td><strong>Batch login (100 users):</strong></td>
-                    <td>Server: 100 * bcrypt_verify<br/>= ~10 seconds</td>
-                    <td>Server: 100 * STARK verify<br/>= ~20 seconds, but highly parallelizable</td>
-                    <td>✅ Better with CPU clustering</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="section-box">
-            <h3>Why Shifting to Client-Side Matters</h3>
-            <div class="highlight">
-                <strong>Traditional approach bottleneck:</strong>
-                <br/><br/>
-                All 1 million users logging in during peak hour must hit the server.
-                Server must compute Argon2 1M times = 500,000 seconds of CPU work.
-                With 32-core server: 500,000 / 32 = 15,625 seconds = 4.3 hours of compute.
-                <br/><br/>
-                Each user waiting for: Network(50ms) + Arg2(500ms) + DB(10ms) = ~560ms
-            </div>
-
-            <div class="highlight">
-                <strong>STARK-based approach:</strong>
-                <br/><br/>
-                Each user computes Argon2 on their own machine (parallelize across cores/devices).
-                Server only verifies proofs (~200ms per proof, easily parallelizable).
-                Server needs: 32 cores * (3600 seconds) / 200ms = 576,000 proofs per hour = 160 proofs per second.
-                <br/><br/>
-                Each user waiting for: Network(50ms) + STARK verify(200ms) + DB(10ms) = ~260ms
-                <br/>
-                <strong>Result: 2.15x faster login, massive server CPU savings</strong>
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Proof Size & Network Considerations</h3>
-            <table class="comparison-table">
-                <tr>
-                    <th>Metric</th>
-                    <th>Value</th>
-                    <th>Notes</th>
-                </tr>
-                <tr>
-                    <td><strong>Proof Size</strong></td>
-                    <td>~600 KB</td>
-                    <td>35 queries × 9 FRI layers with Merkle paths + KDF trace paths (blowup=32, LDE=8192)</td>
-                </tr>
-                <tr>
-                    <td><strong>Transmission Time</strong></td>
-                    <td>~4.8 seconds (1 Mbps)<br/>~480ms (10 Mbps)<br/>~48ms (100 Mbps)</td>
-                    <td>Typical: 48ms (broadband)</td>
-                </tr>
-                <tr>
-                    <td><strong>Compression (gzip)</strong></td>
-                    <td>~210 KB (35% ratio)</td>
-                    <td>JSON compresses well due to repetitive hex strings</td>
-                </tr>
-                <tr>
-                    <td><strong>Proof Generation Time</strong></td>
-                    <td>~8–20 seconds (Browser)<br/>~3–5 seconds (Node.js)</td>
-                    <td>35 queries, 9 FRI layers, 220 MiMC rounds, PoW grind (2<sup>24</sup> ~16M SHA-256)</td>
-                </tr>
-                <tr>
-                    <td><strong>Proof Verification Time</strong></td>
-                    <td>~300–500ms (Server)</td>
-                    <td>35 queries, 9 FRI layers, KDF chain re-derivation, hash_encoded binding, PoW check</td>
-                </tr>
-            </table>
-
-            <div class="highlight">
-                <strong>Optimization Opportunity:</strong>
-                <br/>
-                Reduce proof size from 700 KB to ~200 KB by:
-                <ul>
-                    <li>Batching queries (merkle path sharing)</li>
-                    <li>Increasing fold count (smaller final proof)</li>
-                    <li>Using proof compression schemes</li>
-                </ul>
-                This would reduce network transmission to ~1.6 seconds on 1 Mbps (still acceptable).
-            </div>
-        </div>
-
-        <div class="section-box">
-            <h3>Multi-Device & Offline Scenarios</h3>
-            <ul>
-                <li>
-                    <strong>Desktop login:</strong> User's machine computes proof (leverage CPU cores).
-                    High-spec device = faster proof generation.
-                </li>
-                <li>
-                    <strong>Mobile login:</strong> User's phone computes proof (uses device resources).
-                    May be slower (~3-4 seconds on mobile), but still acceptable.
-                </li>
-                <li>
-                    <strong>Smart TV / IoT:</strong> Can't compute Argon2 efficiently?
-                    Fall back to simpler MiMC-7 STARK (2 seconds, constant output).
-                </li>
-                <li>
-                    <strong>Offline generation:</strong> User can generate proof without internet,
-                    submit later when online (no real-time requirement).
-                </li>
-            </ul>
-        </div>
-
-        <div class="section-box">
-            <h3>Rate Limiting & DoS Protection</h3>
-            <p>
-                The server-side benefit is subtle but important:
-            </p>
-            <ul>
-                <li>
-                    <strong>Traditional:</strong> Rate limit by IP (e.g., 10 login attempts per minute).
-                    Attacker can still hit server 10 times with full Argon2 cost.
-                    Server CPU: 5 seconds of compute per minute per attacker.
-                </li>
-                <li>
-                    <strong>STARK-based:</strong> Rate limit by IP (e.g., 10 attempts per minute).
-                    Server only verifies proofs, not computing.
-                    Server CPU: 2 seconds of compute per minute per attacker (10x less).
-                    <br/>Plus: Proof generation on client is expensive → natural DoS protection.
-                </li>
-            </ul>
-        </div>
-    </div>
-
-    <script>
-        function switchTab(tabName) {
-            // Hide all tab contents
-            const contents = document.querySelectorAll('.tab-content');
-            contents.forEach(c => c.classList.remove('active'));
-            
-            // Deactivate all tab buttons
-            const buttons = document.querySelectorAll('.tab-button');
-            buttons.forEach(b => b.classList.remove('active'));
-            
-            // Show selected tab
-            document.getElementById(tabName).classList.add('active');
-            
-            // Activate clicked button
-            event.target.classList.add('active');
-        }
-    </script>
 </body>
 </html>
