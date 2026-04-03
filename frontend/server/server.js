@@ -6,7 +6,7 @@ const ZKVerifier = require('../../zk-hash/verifier');
 const db = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // ── Nonce replay prevention (Phase 3) ────────────────────────────────────────
 // Tracks used session_nonces with TTL = SESSION_TTL_MS. Nonces are single-use.
@@ -457,6 +457,30 @@ app.post('/api/p2/login', ipRateLimit, (req, res) => {
         console.error('[p2/login] error:', e);
         recordFailure(uname);
         res.status(500).json({ success: false, error: 'Login failed: ' + e.message });
+    }
+});
+
+/**
+ * GET /api/p2/db-view/:username
+ * Returns the entire database row for a given username.
+ * For demonstration purposes only to show the user what does and does not get stored!
+ */
+app.get('/api/p2/db-view/:username', ipRateLimit, (req, res) => {
+    const username = String(req.params.username || '').trim();
+    if (!username) return res.status(400).json({ success: false, error: 'username required' });
+
+    try {
+        const user = db.getUserByUsername(username);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        res.json({
+            success: true,
+            user: user
+        });
+    } catch (e) {
+        console.error('[p2/db-view] error:', e);
+        res.status(500).json({ success: false, error: 'Internal error' });
     }
 });
 

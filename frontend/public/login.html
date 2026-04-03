@@ -183,6 +183,63 @@
             line-height: 1.6;
         }
         .security-note strong { color: #c9d1d9; }
+
+        /* Backend Insight panels */
+        .backend-insight {
+            margin-top: 24px;
+            background: #0d1117;
+            border: 1px dashed #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            display: none; /* Initially hidden */
+        }
+        .backend-insight h3 {
+            margin: 0 0 12px;
+            font-size: 1rem;
+            color: #79c0ff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .insight-section {
+            margin-bottom: 16px;
+        }
+        .insight-section:last-child {
+            margin-bottom: 0;
+        }
+        .insight-label {
+            font-size: 0.75rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+            display: block;
+        }
+        .insight-data {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 10px;
+            border-radius: 6px;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .explanation-text {
+            font-size: 0.85rem;
+            color: #c9d1d9;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        .explanation-text code {
+            background: #21262d;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -268,6 +325,34 @@
     </div>
 
     <span class="back-link"><a href="/">← Back to demo</a> · <a href="architecture.html">Architecture docs</a></span>
+
+    <!-- ── BACKEND INSIGHTS ────────────────────────────────────────────────── -->
+    <div id="backend-insight" class="backend-insight">
+        <h3>🔍 Backend & Database Insight</h3>
+        
+        <div class="insight-section">
+            <span class="insight-label">1. What you just sent to the server (Client ➔ Server)</span>
+            <div class="explanation-text">
+                Your browser computed <code>h₁ = Argon2id(password, salt)</code> and generated a ZK-STARK proof. The password NEVER left your browser. Only the proof and public inputs (like the MiMC hash output) were transmitted.
+            </div>
+            <div id="insight-proof-data" class="insight-data"></div>
+        </div>
+
+        <div class="insight-section">
+            <span class="insight-label">2. Server Verification Process</span>
+            <div class="explanation-text" id="insight-verify-text">
+                The server validated the STARK proof. Once verified, it took the <code>mimc_output</code> and hashed it with its private pepper to compute <code>C = Poseidon(mimc_output, serverPepper)</code>. The proof and the initial hash (h₁) are then <strong>discarded</strong>.
+            </div>
+        </div>
+
+        <div class="insight-section">
+            <span class="insight-label">3. Live Database View (What is actually stored)</span>
+            <div class="explanation-text">
+                Below is a live fetch of your row in the SQLite database. Notice that neither your password nor the direct hash (h₁) is stored.
+            </div>
+            <div id="insight-db-data" class="insight-data">Loading...</div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -377,6 +462,7 @@ async function doRegister() {
                 `The server computed and stored <code>C = Poseidon(h₁, pepper)</code> — your password never left the browser.\n\n` +
                 `You can now <a href="#" onclick="switchTab('login');return false;" style="color:#58a6ff;">log in →</a>`
             );
+            updateInsights(proof, username, true);
         } else {
             stepState('rdone', 'error');
             setStatus('status-register', 'error', `<strong>✗ Registration failed</strong>\n${data.error || 'Unknown error'}`);
@@ -463,6 +549,7 @@ async function doLogin() {
                 `  2. Poseidon(h₁, serverPepper) === stored commitment\n` +
                 `Your password was never transmitted or stored.`
             );
+            updateInsights(proof, username, false);
         } else {
             stepState('ldone', 'error');
             setStatus('status-login', 'error',
@@ -474,6 +561,48 @@ async function doLogin() {
         setStatus('status-login', 'error', `<strong>✗ Error</strong>\n${e.message}`);
     } finally {
         btn.disabled = false;
+    }
+}
+
+// ── BACKEND INSIGHTS ─────────────────────────────────────────────────────────
+async function updateInsights(proof, username, isRegister) {
+    const insightContainer = document.getElementById('backend-insight');
+    const proofDataEl = document.getElementById('insight-proof-data');
+    const dbDataEl = document.getElementById('insight-db-data');
+    const verifyTextEl = document.getElementById('insight-verify-text');
+
+    insightContainer.style.display = 'block';
+    
+    // Display what was sent
+    const payload = {
+        proof_type: proof.proof_type,
+        public_inputs: proof.public_inputs,
+        proof_size: JSON.stringify(proof).length + " bytes"
+    };
+    proofDataEl.textContent = JSON.stringify(payload, null, 2);
+
+    // Update explanation based on action
+    if (isRegister) {
+        verifyTextEl.innerHTML = `The server validated the STARK proof. Once verified, it took the <code>mimc_output</code> and hashed it with its private pepper to compute <code>C = Poseidon(mimc_output, serverPepper)</code>. The proof and the initial hash (h₁) were then <strong>discarded</strong>. Only C is stored for user <code>${username}</code>.`;
+    } else {
+        verifyTextEl.innerHTML = `The server validated the STARK proof, then independently re-computed <code>Poseidon(mimc_output, serverPepper)</code>. It compared this result with the <code>C</code> stored in the database for <code>${username}</code>. Since they matched, you were authenticated!`;
+    }
+
+    // Fetch live db view
+    try {
+        const res = await fetch('/api/p2/db-view/' + encodeURIComponent(username));
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.user) {
+                dbDataEl.textContent = JSON.stringify(data.user, null, 2);
+            } else {
+                dbDataEl.textContent = "Error loading db view: " + (data.error || 'Unknown error');
+            }
+        } else {
+            dbDataEl.textContent = "HTTP error fetching db view: " + res.status;
+        }
+    } catch (e) {
+        dbDataEl.textContent = "Network error fetching db view.";
     }
 }
 
