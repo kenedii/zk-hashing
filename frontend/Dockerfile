@@ -3,14 +3,18 @@ FROM node:18-alpine
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install only production dependencies (package-lock optional)
-COPY package*.json ./
+# Copy frontend package.json (context assumed to be repo root when building)
+COPY frontend/package*.json ./
+
+# Install only production dependencies
 RUN npm ci --only=production
 
-# Copy app sources
-COPY . .
+# Copy only the frontend app and the zk-hash library from the repo root
+COPY frontend/server ./server
+COPY frontend/public ./public
+COPY zk-hash /usr/src/zk-hash
 
-# Cloud Run expects the service to listen on $PORT (default 8080)
+# Cloud Run expects the service to listen on $PORT
 ENV PORT 8080
 
 EXPOSE 8080
