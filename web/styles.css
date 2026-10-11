@@ -313,6 +313,44 @@ main > section { margin-bottom: clamp(3rem, 7vw, 5rem); }
 .status { display: inline-block; white-space: nowrap; font-weight: 600; color: var(--c); }
 .status::before { content: ""; display: inline-block; width: .55em; height: .55em; border-radius: 50%; background: var(--c); margin-right: .45em; vertical-align: .08em; }
 
+/* ---------- Live password demo ---------- */
+.live-section { margin-block: 0 4rem; }
+.live-label, .step-number { display: block; font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--fits); margin-bottom: .75rem; }
+.live-note { padding: 1rem 1.2rem; border-left: 3px solid var(--focus); background: var(--zone-browser); font-size: .9rem; color: var(--muted); }
+.live-forms, .live-inspect { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.25rem; }
+.live-stage, .inspect-panel { min-width: 0; padding: clamp(1rem, 3vw, 1.6rem); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+.live-stage { display: flex; flex-direction: column; align-items: stretch; border-top: 3px solid var(--fits); }
+.live-stage h3, .inspect-panel h3 { font-size: 1.35rem; margin-bottom: 1rem; }
+.live-stage label { display: block; font-size: .9rem; color: var(--muted); margin-bottom: .35rem; }
+.live-stage input { width: 100%; min-width: 0; font: inherit; color: var(--ink); background: var(--paper); padding: .8rem; border: 1px solid var(--rule); border-radius: 4px; margin-bottom: .8rem; }
+.live-stage button { margin-top: auto; }
+.live-stage p { font-size: .85rem; color: var(--muted); margin-bottom: 0; }
+.live-verdict { margin-top: 1rem; border: 1px solid var(--rule); border-radius: 6px; padding: 1.25rem; }
+#live-status { margin: 0; font-weight: 600; }
+#live-status[data-state="accepted"], #live-status[data-state="ready"] { color: var(--fits); }
+#live-status[data-state="rejected"], #live-status[data-state="error"] { color: var(--over); }
+#live-timing { display: block; color: var(--muted); margin-top: .3rem; }
+#replay-button { margin-top: .8rem; font-size: .85rem; }
+.inspect-panel .side { color: var(--muted); font-size: .8rem; }
+.inspect-panel h3 { margin-top: .35rem; }
+.inspect-panel p, .network-view p { font-size: .88rem; color: var(--muted); }
+.inspect-panel pre, .network-view pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: .78rem; line-height: 1.6; background: var(--paper); border: 1px solid var(--rule); padding: .9rem; border-radius: 4px; }
+.browser-panel { border-top: 3px solid var(--focus); }
+.server-panel { border-top: 3px solid var(--fits); }
+.hash-toggle { font-size: .85rem; display: flex; align-items: center; gap: .5rem; }
+.hash-toggle input { accent-color: var(--focus); }
+.live-values { margin-bottom: 0; }
+.live-values div { margin-top: .9rem; }
+.live-values dt { font-size: .8rem; color: var(--muted); }
+.live-values dd { margin: .2rem 0 0; }
+.live-values code { font-size: .76rem; }
+.privacy-receipt { padding: .8rem; background: var(--zone-browser); border-left: 3px solid var(--fits); }
+.network-view { margin-top: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--rule); border-radius: 6px; }
+.network-view summary { cursor: pointer; font-size: .95rem; font-weight: 600; }
+.network-view pre { max-height: 26rem; overflow-y: auto; }
+.live-footnote { font-size: .85rem; color: var(--muted); margin-top: 1rem; }
+@media (max-width: 760px) { .live-forms, .live-inspect { grid-template-columns: 1fr; } }
+
 /* ---------- Verifier ---------- */
 
 .verifier {

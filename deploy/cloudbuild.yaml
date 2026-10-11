@@ -40,6 +40,8 @@ steps:
       - managed
       - --port
       - "8080"
+      - --max-instances
+      - "1"
       - --allow-unauthenticated
 
 images:

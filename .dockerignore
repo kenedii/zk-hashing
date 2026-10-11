@@ -1,5 +1,7 @@
-# Only the site and its server config go into the image.
+# Only the site and demo server go into the build.
 *
-!deploy/nginx.conf
+!package.json
+!package-lock.json
+!server/
 !web/
 web/server.py

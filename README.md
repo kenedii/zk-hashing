@@ -4,6 +4,10 @@ Password login by zero-knowledge proof. The browser runs a real password hash (A
 
 **Live site:** https://zkhash.ckenedi.vip. It explains the protocol, shows where the project stands, and lets you verify a real login proof in your browser.
 
+The home page also has an interactive **Argon2id + Schnorr password demo**. Register any throwaway password, enter it again, and the real Cloud Run server verifies a fresh Schnorr signature against the registered public key. The browser computes Argon2id locally (32 MiB, 3 passes, 1 lane), derives a signing key through domain-separated HKDF, and sends only the public key at registration and the signature at login. The page displays the exact network bodies and the server's actual stored record. A wrong password and a replay are rejected by the server.
+
+This interactive proof establishes possession of the password-derived signing key. It does **not** prove that the client performed Argon2id or used the advertised settings. The full Miden STARK example and lab remain separate and continue to verify the hash computation. Demo accounts live in bounded server memory and expire after 30 minutes or a restart; Cloud Run uses one instance for this ephemeral demo.
+
 > This is research code. It has not been audited and must not protect real accounts. See [SECURITY.md](SECURITY.md).
 
 ## The idea
@@ -48,14 +52,25 @@ web/
   lib/               Lossless JSON parsing for 64-bit proof fields
   proofs/            Published proofs: a valid MiMC-7 proof, a tampered copy, the expected statement
 tests/               JavaScript tests (JSON precision, browser end-to-end smoke test)
-deploy/              Dockerfile, nginx config and Cloud Build config for Cloud Run
+server/              Live password demo API and shared challenge-message definition
+deploy/              Node container and Cloud Build config for Cloud Run
 ```
 
 ## Quick start
 
 ### Run the site locally
 
-The site is static. Serve `web/` over HTTP. Opening the HTML file directly won't load the WebAssembly.
+The interactive home page needs the included Node server:
+
+```sh
+npm ci
+npm run build
+npm start
+```
+
+Open http://localhost:8080/ for the password demo and overview, or http://localhost:8080/lab/ for the STARK lab. Run `npm test` for protocol and request-schema tests, and `npm run smoke` for browser checks (Edge on Windows by default; set `BROWSER_EXE` for another Chromium executable).
+
+For the static STARK example and lab alone, serve `web/` over HTTP. The live password API is unavailable in this mode:
 
 ```sh
 python web/server.py --directory web --port 4173
@@ -174,13 +189,13 @@ The security suite asserts minimum cycle counts (more than 19M, 360M and 400k). 
 
 ## Deploying
 
-The site is a static nginx container on Cloud Run (service `zk-hash-frontend`, region `us-central1`). From the repository root:
+The site and interactive demo API run in a Node 22 container on Cloud Run (service `zk-hash-frontend`, region `us-central1`). From the repository root:
 
 ```sh
 gcloud builds submit --config deploy/cloudbuild.yaml --project ckenedi-portfolio .
 ```
 
-The nginx config sets a strict Content Security Policy: no third-party origins, with `'wasm-unsafe-eval'` allowed only so the verifier can compile. It also serves `.wasm` with the correct MIME type.
+The server sets a strict Content Security Policy with no third-party origins; `'wasm-unsafe-eval'` allows the local Argon2id and STARK WebAssembly modules to compile. It serves `.wasm` with the correct MIME type. The deployment uses one instance so ephemeral accounts and single-use challenges stay in one process. Restarts clear the demo's records.
 
 ## What's next
 

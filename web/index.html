@@ -15,13 +15,72 @@
       <h1>Log in by proving you know the password</h1>
       <p class="lede">zk-hashing runs real password hashes (Argon2id, bcrypt and MiMC-7) inside a STARK proof. Your browser proves the password matches what the server stored. The server never receives the password, or a hash it could replay.</p>
       <p class="cta">
-        <a class="button" href="#try">Check a login proof</a>
+        <a class="button" href="#live-demo">Try a password</a>
+        <a class="button secondary" href="#try">Check a STARK proof</a>
         <a class="button secondary" href="https://github.com/kenedii/zk-hashing">Read the code</a>
       </p>
     </div>
   </header>
 
   <main>
+    <section class="live-section measure wide" aria-labelledby="live-demo">
+      <div class="live-heading">
+        <span class="live-label">Live browser → server demo</span>
+        <h2 id="live-demo">Type a password. Watch the server verify it.</h2>
+        <p class="section-lede">Your password is hashed in this tab. The server gets a public key at registration and a fresh proof at login. Inspect every request below.</p>
+      </div>
+      <p class="live-note">This live flow uses <strong>Argon2id + a Schnorr signature proving possession of the derived secret key</strong>. It lets you try any password without the full STARK prover’s memory cost. The <a href="#try">Miden STARK example</a> below verifies the full hash computation; this live proof does not certify which hash settings a client used.</p>
+      <div class="live-forms">
+        <form id="register-form" class="live-stage">
+          <span class="step-number">01 / REGISTER</span>
+          <h3>Choose a demo password</h3>
+          <label for="register-password">Use a throwaway password</label>
+          <input id="register-password" type="password" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Make one up…" required>
+          <button id="register-button" type="submit">Register in the browser</button>
+          <p>Only the public key, random salt and hash settings leave your tab.</p>
+        </form>
+        <form id="login-form" class="live-stage" aria-labelledby="login-stage">
+          <span class="step-number">02 / PROVE &amp; VERIFY</span>
+          <h3 id="login-stage">Try to log in</h3>
+          <label for="login-password">Enter the password you registered</label>
+          <input id="login-password" type="password" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Same password, or try a wrong one…" required disabled>
+          <button id="login-button" type="submit" disabled>Prove &amp; verify on the server</button>
+          <p>The server sends a new challenge and checks your proof against its stored public key.</p>
+        </form>
+      </div>
+      <div class="live-verdict">
+        <p id="live-status" role="status" aria-live="polite">Choose a password to start. No account or email needed.</p>
+        <small id="live-timing"></small>
+        <button id="replay-button" type="button" class="secondary" disabled>Try replaying the last proof</button>
+      </div>
+      <div class="live-inspect">
+        <article class="inspect-panel browser-panel">
+          <span class="side">In your browser</span>
+          <h3>The secret stays here</h3>
+          <p id="local-computation">Your password and Argon2id output are used locally to derive a private signing key.</p>
+          <label class="hash-toggle"><input id="reveal-hash" type="checkbox"> Reveal the local Argon2id hash</label>
+          <pre id="local-hash" hidden>Run a registration or login first.</pre>
+          <dl class="live-values">
+            <div><dt>Server challenge</dt><dd><code id="live-challenge">Waiting for a login</code></dd></div>
+            <div><dt>64-byte proof sent</dt><dd><code id="live-proof">Waiting for a login</code></dd></div>
+          </dl>
+        </article>
+        <article class="inspect-panel server-panel">
+          <span class="side">On the actual Cloud Run server</span>
+          <h3>What the server stores</h3>
+          <pre id="server-record">No registration yet.</pre>
+          <p><strong>Last request fields:</strong> <span id="server-fields">None yet</span></p>
+          <p id="privacy-receipt" class="privacy-receipt" hidden></p>
+        </article>
+      </div>
+      <details class="network-view">
+        <summary>Inspect the actual network requests</summary>
+        <p>These are the exact JSON bodies passed to <code>fetch</code>. You can also inspect <code>/api/demo/</code> in your browser’s Network tab. The server accepts only the displayed fields.</p>
+        <pre id="network-transcript">No requests yet.</pre>
+      </details>
+      <p class="live-footnote">Demo accounts expire after 30 minutes or a server restart. This is a learning demo: a leaked public key can still be tested against password guesses. The password hash and signing key are never sent to this server.</p>
+    </section>
+
     <section class="measure wide" aria-labelledby="how">
       <h2 id="how">How a login works</h2>
       <p class="section-lede">Two messages per login, and the only secret never leaves the browser.</p>
@@ -220,6 +279,7 @@
     <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="lab/">Full lab</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a></p>
   </footer>
 
+  <script type="module" src="live-demo.bundle.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

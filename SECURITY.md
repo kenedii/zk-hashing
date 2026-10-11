@@ -29,7 +29,15 @@ The verifier pins the algorithm-specific MASP program hash, requires output `[1]
 
 ## Replay protection
 
-The four-word challenge is a 128-bit application nonce. The relying party must generate it uniformly, tie it to a session/statement, and mark it spent after successful verification. It is not a password salt and it is not one of the STARK's internal Fiat–Shamir challenges. Reusing it permits proof replay. The demo intentionally does not implement a server-side nonce database.
+The STARK example's four-word challenge is a 128-bit application nonce. The relying party must generate it uniformly, tie it to a session/statement, and mark it spent after successful verification. It is not a password salt and it is not one of the STARK's internal Fiat–Shamir challenges. Reusing it permits proof replay. The published STARK example uses a fixed statement for local verification and is not a live login endpoint.
+
+## Interactive Argon2id + Schnorr demo
+
+The home page's live flow is a separate password-derived signing-key protocol. Browser Argon2id uses 32 MiB, 3 passes, one lane, a fresh 16-byte salt and a 32-byte output. Domain-separated HKDF-SHA256 expands the output to 48 bytes, which are reduced to a nonzero secp256k1 scalar. The server receives a BIP340 public key, salt and fixed settings at registration; at login it receives only an account identifier, challenge identifier and 64-byte Schnorr signature. The message binds the protocol identifier, account, challenge identifier and a server-issued random 256-bit challenge. The server computes this message independently and verifies against its stored public key using `@noble/curves`.
+
+Challenges expire after two minutes and are consumed atomically before verification, including failed attempts. Accounts expire after 30 minutes. Accounts and pending challenges exist only in bounded process memory; the Cloud Run demo is limited to one instance, and restarts discard all records. There are no durable accounts or login sessions. Strict request schemas reject additional fields; request bodies, hashes, keys and passwords are never logged by the application. Responses return public storage data and received field names so visitors can inspect the actual behavior.
+
+A Schnorr signature proves possession of the derived signing key, not execution of Argon2id or adherence to the settings. A client holding that key can authenticate without the original password. This is not a full STARK and does not inherit the Miden circuit's computation guarantees. A leaked public key supports offline password guessing, and the demonstration has not been audited. The local hash is available for explicit display in the browser only; browser compromise or developer tools can expose local secrets. Use throwaway passwords.
 
 ## Security level and performance
 

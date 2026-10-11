@@ -110,7 +110,7 @@ function wire() {
     event.preventDefault();
     const guess = $('guess').value;
     if (!guess) return;
-    run(`Checked against the commitment for “${guess}”`, () => {
+    run('Checked against the locally entered password’s commitment', () => {
       const credential = Array.from(api.credential_mimc7(guess, SALT), (v) => BigInt(v.toString()));
       return { env: envelope, credential, challenge: CHALLENGE };
     });

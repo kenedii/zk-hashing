@@ -1,6 +1,7 @@
 {
   "name": "argon2id-zk-browser-tests",
   "private": true,
+  "type": "module",
   "scripts": {
     "test": "node envelope-json.test.cjs",
     "smoke": "node envelope-json.test.cjs && node browser-smoke.cjs"
