@@ -1,0 +1,17 @@
+[package]
+name = "mimc_password_miden_circuit"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+miden = { version = "=0.14.0-rc.1" }
+
+[profile.release]
+panic = "abort"
+opt-level = 2
+lto = true
+codegen-units = 1

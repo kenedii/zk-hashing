@@ -1,5 +1,22 @@
-*.md
-.vscode/
+# Rust build output
+target/
+**/target/
+
+# Circuit Wasm is an intermediate build product; the .masp/.masm artifacts are committed
+artifacts/*.wasm
+
+# Node
 node_modules/
-frontend/node_modules/
-frontend/data/
+
+# Local toolchains and caches
+.build-cache/
+.tools/
+
+# Native prover binaries are published as GitHub release assets, not committed
+*.exe
+*.pdb
+
+# Generated proofs and editor files
+proof.json
+.vscode/
+.DS_Store

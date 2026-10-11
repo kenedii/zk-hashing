@@ -1,0 +1,5 @@
+# Only the site and its server config go into the image.
+*
+!deploy/nginx.conf
+!web/
+web/server.py

@@ -1,0 +1,49 @@
+# Builds the site image and deploys it to the existing Cloud Run service.
+# Run from the repository root:
+#   gcloud builds submit --config deploy/cloudbuild.yaml --project ckenedi-portfolio .
+substitutions:
+  _SERVICE_NAME: zk-hash-frontend
+  _REGION: us-central1
+
+steps:
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - deploy/Dockerfile
+      - -t
+      - gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID
+      - -t
+      - gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest
+      - .
+
+  - id: push-build-image
+    name: gcr.io/cloud-builders/docker
+    args: [push, gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID]
+
+  - id: push-latest-image
+    name: gcr.io/cloud-builders/docker
+    args: [push, gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest]
+
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - $_SERVICE_NAME
+      - --image
+      - gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID
+      - --region
+      - $_REGION
+      - --platform
+      - managed
+      - --port
+      - "8080"
+      - --allow-unauthenticated
+
+images:
+  - gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID
+  - gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest
+
+timeout: 1200s

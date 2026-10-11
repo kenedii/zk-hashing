@@ -1,0 +1,10 @@
+[package]
+name = "argon2id-miden-circuit"
+version = "0.1.0"
+
+[[bin]]
+name = "argon2id-miden-circuit"
+path = "../../artifacts/argon2id_miden_circuit.wasm"
+
+[dependencies]
+miden-core = "0.25.8"
