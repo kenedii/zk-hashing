@@ -1,0 +1,19 @@
+<section class="measure wide" aria-labelledby="impl">
+      <h2 id="impl">Browser and native implementations</h2>
+      <p class="section-lede">One Rust runtime is compiled to two targets: a native executable for proving, and WebAssembly for verification in the browser.</p>
+      <div class="table-wrap">
+        <table class="circuits compare">
+          <thead>
+            <tr><th scope="col"></th><th scope="col">Native prover</th><th scope="col">Browser (WebAssembly)</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Role</th><td>Generates proofs for all three circuits</td><td>Verifies proofs and computes commitments. MiMC-7 proving is attempted but exceeds the 4&nbsp;GiB limit</td></tr>
+            <tr><th scope="row">Address space</th><td>Limited by RAM and page file</td><td>4&nbsp;GiB (wasm32). Memory64 raises the JavaScript API limit to 16&nbsp;GiB in Chrome&nbsp;133+ and Firefox&nbsp;134+</td></tr>
+            <tr><th scope="row">Parallelism</th><td>Multi-threaded (Miden <code>concurrent</code> feature): 1.8× faster on 2 cores</td><td>Single-threaded</td></tr>
+            <tr><th scope="row">Verification</th><td>Milliseconds</td><td>Milliseconds</td></tr>
+            <tr><th scope="row">Artifacts</th><td>Same pinned <code>.masp</code> programs and verifier</td><td>Same pinned <code>.masp</code> programs and verifier (≈9&nbsp;MB Wasm)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">The <a href="password-demo.html">password-flow demonstration</a> does not use the STARK prover. It is a classical baseline (Argon2id with a Schnorr signature) that exercises the same message flow.</p>
+    </section>

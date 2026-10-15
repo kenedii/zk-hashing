@@ -2,7 +2,7 @@
 
 Password login by zero-knowledge proof. The browser runs a real password hash (Argon2id, bcrypt or MiMC-7) inside a STARK-provable virtual machine and proves that the result matches what the server stored. The server never receives the password, or a hash it could replay.
 
-**Live site:** https://zkhash.ckenedi.vip. It explains the protocol, shows where the project stands, and lets you verify a real login proof in your browser.
+**Live site:** https://zkhash.ckenedi.vip. It is organized into *Info* pages (a plain-language introduction with an interactive zero-knowledge example, a technical description, results and a security analysis) and *Demos* (an in-browser verifier, a proof gallery with experiment data, a classical password-flow baseline and the circuit lab).
 
 The home page also has an interactive **Argon2id + Schnorr password demo**. Register any throwaway password, enter it again, and the real Cloud Run server verifies a fresh Schnorr signature against the registered public key. The browser computes Argon2id locally (32 MiB, 3 passes, 1 lane), derives a signing key through domain-separated HKDF, and sends only the public key at registration and the signature at login. The page displays the exact network bodies and the server's actual stored record. A wrong password and a replay are rejected by the server.
 
@@ -50,8 +50,11 @@ circuits/
   reference-tests/   Argon2id differential tests against RustCrypto
 artifacts/           Compiled circuits (.masp packages the verifier pins, .masm for review)
 runtime/             Prover and verifier library, CLI, WebAssembly bindings, security tests
+site-src/            Page sources: layout, pages and shared fragments (TeX rendered to MathML at build time)
+scripts/             build-pages.mjs: builds the web/*.html pages from site-src/
 web/
-  index.html         Overview page served at the site root
+  *.html             Generated pages: overview, What is this?, How it works, Results, Security,
+                     Future work, Verify, Experiments, Password flow (run `npm run build:pages`)
   lab/               Full lab: compute commitments for all three algorithms, verify proof files
   pkg/               The runtime compiled to WebAssembly (wasm-bindgen output)
   lib/               Lossless JSON parsing for 64-bit proof fields
@@ -64,6 +67,8 @@ deploy/              Node container and Cloud Build config for Cloud Run
 ## Quick start
 
 ### Run the site locally
+
+The HTML pages in `web/` are generated from `site-src/`. After editing a page or fragment, run `npm run build:pages`.
 
 The interactive home page needs the included Node server:
 

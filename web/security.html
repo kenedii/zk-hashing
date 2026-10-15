@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security analysis · zk-hashing</title>
+  <meta name="description" content="Security analysis of zk-hashing: threat model, what an accepted proof establishes, offline guessing costs, comparison with OPAQUE (RFC 9807), post-quantum considerations and limitations.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317202e'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%23edf0f2' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="site-bar measure wide">
+      <a class="brand" href="./" data-page="index.html">zk-hashing</a>
+      <nav class="site-nav" aria-label="Site">
+        <details class="menu">
+          <summary data-section="info" aria-current="true">Info</summary>
+          <ul class="menu-list">
+            <li><a href="what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
+            <li><a href="how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
+            <li><a href="results.html" data-page="results.html"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
+            <li><a href="security.html" data-page="security.html" aria-current="page"><b>Security analysis</b><span>Guarantees, comparison with OPAQUE, limitations</span></a></li>
+            <li><a href="research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
+          </ul>
+        </details>
+        <details class="menu">
+          <summary data-section="demos">Demos</summary>
+          <ul class="menu-list">
+            <li><a href="verify.html" data-page="verify.html"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
+            <li><a href="experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
+            <li><a href="password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
+            <li><a href="lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
+          </ul>
+        </details>
+        <a class="nav-link" href="https://github.com/kenedii/zk-hashing">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+<header class="page-head measure">
+  <span class="eyebrow">Info · Security</span>
+  <h1>Security analysis</h1>
+  <p class="lede">The guarantees the construction provides, the assumptions they rest on, how it compares with the standardized alternative, and the limitations of the current implementation.</p>
+</header>
+
+<article class="measure prose">
+  <section aria-labelledby="model">
+    <h2 id="model">Threat model</h2>
+    <p>We consider four adversaries, in increasing strength:</p>
+    <ol>
+      <li><strong>Network adversary.</strong> Observes and modifies traffic between client and server, but cannot read TLS-protected content.</li>
+      <li><strong>Transcript adversary.</strong> Obtains complete login transcripts <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>n</mi><mo separator="true">,</mo><mi>π</mi><mo stretchy="false">)</mo></mrow></semantics></math></span>, for example from a TLS-terminating intermediary, application logs or a compromised server.</li>
+      <li><strong>Database adversary.</strong> Obtains the stored records <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo stretchy="false">)</mo></mrow></semantics></math></span>.</li>
+      <li><strong>Quantum adversary.</strong> Any of the above, additionally able to run Shor's and Grover's algorithms at cryptographic scale.</li>
+    </ol>
+    <p>The design goal is that no adversary short of the database adversary can authenticate as a user or recover the password at a cost below exhaustive guessing against <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>θ</mi></msub></mrow></semantics></math></span>, and that the database adversary gains nothing beyond what a conventional salted password-hash table already provides.</p>
+  </section>
+
+  <section aria-labelledby="established">
+    <h2 id="established">What an accepted proof establishes</h2>
+    <p>Fix the pinned program hash <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>P</mi></msub></mrow></semantics></math></span> and the server's records <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo stretchy="false">)</mo></mrow></semantics></math></span>. If <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">𝖵</mi><mi mathvariant="normal">𝖾</mi><mi mathvariant="normal">𝗋</mi><mi mathvariant="normal">𝗂</mi><mi mathvariant="normal">𝖿</mi><mi mathvariant="normal">𝗒</mi></mrow><mo stretchy="false">(</mo><msub><mi>h</mi><mi>P</mi></msub><mo separator="true">,</mo><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo separator="true">,</mo><mi>n</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mi>π</mi><mo stretchy="false">)</mo><mo>=</mo><mn>1</mn></mrow></semantics></math></span> for a fresh challenge <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow></semantics></math></span>, knowledge soundness implies that, except with probability at most the knowledge error <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>κ</mi><mo>≈</mo><msup><mn>2</mn><mrow><mo>−</mo><mn>96</mn></mrow></msup></mrow></semantics></math></span>, the prover knew some <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> satisfying</p>
+    <div class="math-display"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mrow><mi mathvariant="normal">𝖯</mi><mn>𝟤</mn></mrow><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">(</mo><msub><mi>τ</mi><mrow><mi mathvariant="normal">a</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">g</mi></mrow></msub><mtext> </mtext><mi mathvariant="normal">∥</mi><mtext> </mtext><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">(</mo><mi>w</mi><mo separator="true">,</mo><mi>s</mi><mo stretchy="false">)</mo><mtext> </mtext><mi mathvariant="normal">∥</mi><mtext> </mtext><mi>s</mi><mtext> </mtext><mi mathvariant="normal">∥</mi><mtext> </mtext><mi>θ</mi><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">)</mo><mo>=</mo><mi>C</mi><mi mathvariant="normal">.</mi></mrow></semantics></math></span></div>
+    <p>By the binding property of the commitment, any such <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> is the registered password or a second preimage of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>θ</mi></msub></mrow></semantics></math></span>. The circuit range-checks every password and salt byte, constrains the length to <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>≤</mo><mi mathvariant="normal">∣</mi><mi>w</mi><mi mathvariant="normal">∣</mi><mo>≤</mo><mn>64</mn></mrow></semantics></math></span>, and uses domain tags with explicit lengths, which excludes cross-algorithm and concatenation ambiguities. Because <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow></semantics></math></span> is absorbed into the Fiat–Shamir transcript and marked as spent after use, a proof authenticates exactly one login.</p>
+  </section>
+
+  <section aria-labelledby="guessing">
+    <h2 id="guessing">Offline guessing</h2>
+    <p>Let <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">𝒲</mi></mrow></semantics></math></span> be the attacker's candidate list, ordered by estimated likelihood, and let <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> denote the cost of one hash evaluation. Any party holding <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> can test candidates by recomputing the commitment, and succeeds after expected work</p>
+    <div class="math-display"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi mathvariant="normal">𝔼</mi><mo stretchy="false">[</mo><mrow><mi mathvariant="normal">w</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">k</mi></mrow><mo stretchy="false">]</mo><mo>≈</mo><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo><mo>⋅</mo><munder><mo>∑</mo><mrow><mi>i</mi><mo>≥</mo><mn>1</mn></mrow></munder><mi>i</mi><mo>⋅</mo><mi>Pr</mi><mo>⁡</mo><mo stretchy="false">[</mo><mi>w</mi><mo>=</mo><msub><mi>w</mi><mi>i</mi></msub><mo stretchy="false">]</mo><mi mathvariant="normal">.</mi></mrow></semantics></math></span></div>
+    <p>This is the same bound as for a conventional salted hash. The salt prevents precomputation across users, and <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span> sets the per-guess cost. Two properties of the current implementation widen the set of parties who hold <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span>:</p>
+    <ul>
+      <li><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> is a public input of every proof, so the transcript adversary learns it as well as the database adversary.</li>
+      <li>The proofs are not zero-knowledge. The committed trace polynomials are deterministic in <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span>, so a proof is itself a guessing oracle. Testing a candidate this way costs at least one in-VM execution of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>θ</mi></msub></mrow></semantics></math></span>, which is more expensive than testing against <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> directly, so this adds no new capability beyond what <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> already gives.</li>
+    </ul>
+    <p>Proofs and commitments should therefore be handled as credential material: kept out of logs, and transported only over TLS.</p>
+  </section>
+
+  <section aria-labelledby="comparison">
+    <h2 id="comparison">Comparison with OPAQUE</h2>
+    <p>OPAQUE (RFC&nbsp;9807) is an asymmetric password-authenticated key exchange (aPAKE). The client blinds its password and obtains, through an oblivious pseudorandom function (OPRF) evaluated jointly with the server, a value <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">d</mi></mrow><mo>=</mo><msub><mi>F</mi><mi>k</mi></msub><mo stretchy="false">(</mo><mi>w</mi><mo stretchy="false">)</mo></mrow></semantics></math></span>. Here <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span> is a per-user key held by the server, and the server learns neither <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> nor <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">d</mi></mrow></semantics></math></span>. In the prime-order-group instantiation, the client sends <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><msub><mi mathvariant="normal">ℋ</mi><mi>G</mi></msub><mo stretchy="false">(</mo><mi>w</mi><msup><mo stretchy="false">)</mo><mi>r</mi></msup></mrow></semantics></math></span> for a random <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi></mrow></semantics></math></span>, the server returns <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><msup><mi>B</mi><mi>k</mi></msup></mrow></semantics></math></span>, and the client unblinds <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>Z</mi><mrow><mn>1</mn><mi mathvariant="normal">/</mi><mi>r</mi></mrow></msup><mo>=</mo><msub><mi mathvariant="normal">ℋ</mi><mi>G</mi></msub><mo stretchy="false">(</mo><mi>w</mi><msup><mo stretchy="false">)</mo><mi>k</mi></msup></mrow></semantics></math></span>. The value <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">d</mi></mrow></semantics></math></span> then decrypts an envelope holding the client's long-term key, which is used in an authenticated key exchange.</p>
+    <div class="table-wrap">
+      <table class="circuits compare">
+        <thead>
+          <tr>
+            <th scope="col">Property</th>
+            <th scope="col">zk-hashing (STARK)</th>
+            <th scope="col">Password-flow baseline (Argon2id + Schnorr)</th>
+            <th scope="col">OPAQUE (RFC&nbsp;9807)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Password or replayable value transmitted</th><td>No</td><td>No</td><td>No</td></tr>
+          <tr><th scope="row">Server state per user</th><td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo stretchy="false">)</mo></mrow></semantics></math></span></td><td>Public key, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi></mrow></semantics></math></span>, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span></td><td>OPRF key <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span>, client public key, envelope</td></tr>
+          <tr><th scope="row">Offline guessing after database compromise</th><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; one OPRF evaluation and one hash per guess</td></tr>
+          <tr><th scope="row">Offline guessing from a login transcript</th><td>Yes; <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> is a public input</td><td>Yes; a signature can be checked against candidate keys</td><td>No, under the assumptions of the security proof</td></tr>
+          <tr><th scope="row">Hardness assumptions</th><td>Collision-resistant hashing; conjectured proximity gaps for Reed–Solomon codes</td><td>Discrete logarithm on secp256k1</td><td>One-more Diffie–Hellman (random-oracle model)</td></tr>
+          <tr><th scope="row">Attack by a quantum adversary</th><td>No known attack on soundness</td><td>Signing key recoverable from the public key</td><td>OPRF key recoverable from one transcript, which re-enables offline guessing</td></tr>
+          <tr><th scope="row">Session key and server authentication</th><td>No; delegated to TLS</td><td>No; delegated to TLS</td><td>Yes</td></tr>
+          <tr><th scope="row">Client cost per login</th><td>Impractical for Argon2id and bcrypt at present</td><td>About one second</td><td>Milliseconds plus the chosen hash</td></tr>
+          <tr><th scope="row">Maturity</th><td>Research prototype</td><td>Demonstration</td><td>IETF standard with a security proof in the UC framework</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="quantum">
+    <h2 id="quantum">Post-quantum considerations</h2>
+    <p><strong>OPAQUE.</strong> Shor's algorithm computes discrete logarithms in polynomial time. An adversary who observes one OPRF exchange <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>B</mi><mo separator="true">,</mo><mi>Z</mi><mo>=</mo><msup><mi>B</mi><mi>k</mi></msup><mo stretchy="false">)</mo></mrow></semantics></math></span> can therefore recover <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span>, then evaluate <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>k</mi></msub><mo stretchy="false">(</mo><msup><mi>w</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo stretchy="false">)</mo></mrow></semantics></math></span> for candidate passwords and test each against the envelope. This removes the protection against offline guessing that distinguishes an aPAKE. The session keys of recorded exchanges are likewise exposed to harvest-now-decrypt-later attacks, as the IETF hybrid PQ-PAKE draft notes. Post-quantum aPAKE designs, including the hybrid CPaceOQUAKE+ proposal and KEM-based compilers, are under development but not yet standardized.</p>
+    <p><strong>STARK-based authentication.</strong> The argument uses only a hash function, through Merkle commitments and Fiat–Shamir, so Shor's algorithm does not apply. Generic quantum search still matters. Grover's algorithm finds a preimage in a space of size <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mi>λ</mi></msup></mrow></semantics></math></span> with <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><msup><mn>2</mn><mrow><mi>λ</mi><mi mathvariant="normal">/</mi><mn>2</mn></mrow></msup><mo stretchy="false">)</mo></mrow></semantics></math></span> queries. For the BCS construction underlying STARKs, Chiesa, Manohar and Spooner prove security in the quantum random-oracle model, with an adversary's success probability growing roughly quadratically in its number of oracle queries rather than linearly. A conjectured classical level of 96 bits therefore corresponds to a substantially smaller post-quantum margin, and a post-quantum deployment should use a higher security level.</p>
+    <p><strong>Transport.</strong> The construction authenticates the client but establishes no key, so confidentiality and server authentication rest on TLS. A post-quantum deployment also requires post-quantum key agreement in TLS, such as the hybrid X25519MLKEM768 group now offered by major browsers. The password-flow baseline uses secp256k1 Schnorr signatures and offers no post-quantum security.</p>
+  </section>
+
+  <section aria-labelledby="limitations">
+    <h2 id="limitations">Limitations</h2>
+    <ul class="caveats-list">
+      <li><strong>Proving cost.</strong> At realistic parameters, Argon2id and bcrypt proofs need memory several orders of magnitude beyond client hardware when a general-purpose prover is used (<a href="how-it-works.html#cost">cost model</a>). The demonstrated settings, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>8</mn></mrow></semantics></math></span>&nbsp;KiB for Argon2id and cost&nbsp;4 for bcrypt, are far below recommended password-storage parameters.</li>
+      <li><strong>No zero knowledge.</strong> The prover does not randomize the trace. Miden's roadmap lists perfect zero knowledge as future work.</li>
+      <li><strong>Public commitment.</strong> As shown above, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> is visible to any party that sees a proof.</li>
+      <li><strong>No key agreement.</strong> The protocol provides one-way authentication and depends on TLS for everything else.</li>
+      <li><strong>Side channels.</strong> Argon2id uses data-dependent memory addressing, and VM execution is not constant-time. Timing and resource side channels have not been analysed.</li>
+      <li><strong>Scope.</strong> Passwords are 1–64 bytes, salts exactly 16 bytes, and Argon2id lanes 1–4. The Argon2id secret and associated-data inputs are not supported.</li>
+      <li><strong>Assurance.</strong> Miden VM and the Rust-to-Miden compiler are experimental, and this code has not been independently audited. For deployments today, OPAQUE is the appropriate choice.</li>
+    </ul>
+  </section>
+</article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="measure wide">
+      <p>zk-hashing is a research prototype. It has not been audited and must not protect real accounts.</p>
+      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="research.html">References</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="nav.js"></script>
+
+</body>
+</html>

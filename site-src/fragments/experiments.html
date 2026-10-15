@@ -1,0 +1,87 @@
+<section class="measure wide experiments" aria-labelledby="experiments">
+      
+      <p class="section-lede">Raw results from the proving experiments, with the proof files and monitoring data published alongside. Every proof below can be checked in this page with the same WebAssembly verifier.</p>
+
+      <h3 class="subhead" id="gallery">Proof gallery</h3>
+      <p>Each file is an independently generated MiMC-7 proof for the same statement: password <code>hunter2</code>, salt <code>000102…0f</code> and challenge <code>305419896, 2596069104, 267242409, 2271560481</code>. STARK proofs are randomized, so the honest proofs differ byte for byte. All of them should verify, and the altered one should not.</p>
+      <ul class="gallery">
+        <li data-proof="proofs/mimc-proof.json">
+          <h4>Windows workstation</h4>
+          <dl><dt>Prover</dt><dd>Native, single-threaded</dd><dt>Time</dt><dd>39.2&nbsp;s</dd><dt>Size</dt><dd>172,647&nbsp;bytes</dd></dl>
+          <p class="gallery-actions"><button type="button" class="secondary" disabled>Verify</button> <a href="proofs/mimc-proof.json" download>Download</a></p>
+          <p class="gallery-result" aria-live="polite">Waiting for the verifier…</p>
+        </li>
+        <li data-proof="proofs/mimc-proof-linux-single-thread.json">
+          <h4>Linux, 2 vCPU</h4>
+          <dl><dt>Prover</dt><dd>Native, single-threaded</dd><dt>Time</dt><dd>88.3&nbsp;s, 4.25&nbsp;GiB peak</dd><dt>Size</dt><dd>172,647&nbsp;bytes</dd></dl>
+          <p class="gallery-actions"><button type="button" class="secondary" disabled>Verify</button> <a href="proofs/mimc-proof-linux-single-thread.json" download>Download</a></p>
+          <p class="gallery-result" aria-live="polite">Waiting for the verifier…</p>
+        </li>
+        <li data-proof="proofs/mimc-proof-linux-multi-thread.json">
+          <h4>Linux, 2 vCPU</h4>
+          <dl><dt>Prover</dt><dd>Native, multi-threaded</dd><dt>Time</dt><dd>49.6&nbsp;s, 4.27&nbsp;GiB peak</dd><dt>Size</dt><dd>170,771&nbsp;bytes</dd></dl>
+          <p class="gallery-actions"><button type="button" class="secondary" disabled>Verify</button> <a href="proofs/mimc-proof-linux-multi-thread.json" download>Download</a></p>
+          <p class="gallery-result" aria-live="polite">Waiting for the verifier…</p>
+        </li>
+        <li data-proof="proofs/mimc-proof-tampered.json" class="tampered">
+          <h4>Tampered copy</h4>
+          <dl><dt>Origin</dt><dd>Workstation proof with altered proof bytes</dd><dt>Expected</dt><dd>Rejection</dd><dt>Size</dt><dd>172,647&nbsp;bytes</dd></dl>
+          <p class="gallery-actions"><button type="button" class="secondary" disabled>Verify</button> <a href="proofs/mimc-proof-tampered.json" download>Download</a></p>
+          <p class="gallery-result" aria-live="polite">Waiting for the verifier…</p>
+        </li>
+      </ul>
+      <p class="table-note">The expected statement is in <a href="proofs/mimc-expected.json">mimc-expected.json</a>. Command-line check: <code>argon2id-zk-cli verify-file &lt;proof&gt; mimc-expected.json</code>. All three honest proofs also pass the native verifier, and the tampered file fails both verifiers.</p>
+
+      <h3 class="subhead">A. MiMC-7 native proving</h3>
+      <div class="table-wrap">
+        <table class="circuits compare">
+          <thead><tr><th scope="col">Machine</th><th scope="col">Prover</th><th scope="col" class="num">Wall time</th><th scope="col" class="num">CPU time</th><th scope="col" class="num">Peak memory</th><th scope="col" class="num">Proof</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Windows workstation, 128&nbsp;GiB</th><td>Single-threaded</td><td class="num">39.2&nbsp;s</td><td class="num">n/a</td><td class="num">n/a</td><td class="num">172,647&nbsp;B</td></tr>
+            <tr><th scope="row">Linux, 2 vCPU, 8&nbsp;GiB</th><td>Single-threaded</td><td class="num">88.3&nbsp;s</td><td class="num">88&nbsp;s</td><td class="num">4.25&nbsp;GiB</td><td class="num">172,647&nbsp;B</td></tr>
+            <tr><th scope="row">Linux, 2 vCPU, 8&nbsp;GiB</th><td>Multi-threaded (<code>concurrent</code>)</td><td class="num">49.6&nbsp;s</td><td class="num">94&nbsp;s</td><td class="num">4.27&nbsp;GiB</td><td class="num">170,771&nbsp;B</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Finding.</strong> MiMC-7 proving needs about 4.25&nbsp;GiB at peak, roughly 8.5&nbsp;KB per padded trace row (2<sup>19</sup> rows). Enabling Miden's multi-threaded prover cut wall time by 1.8× on two cores without changing memory. The repository's native builds previously ran single-threaded.</p>
+
+      <h3 class="subhead">B. MiMC-7 proving in the browser (wasm32)</h3>
+      <p>The same runtime, compiled to 32-bit WebAssembly, was asked to prove MiMC-7 in headless Chromium (Playwright build 1194), with renderer memory sampled every 10&nbsp;s. <a href="data/browser-wasm32-mimc.csv">Raw data (CSV)</a>.</p>
+      <figure class="xfigure">
+        <div id="chart-browser"></div>
+        <figcaption>Renderer memory during in-browser MiMC-7 proving. The prover peaks at 4.25&nbsp;GiB when run natively.</figcaption>
+      </figure>
+      <p><strong>Finding.</strong> Memory rose to about 3.65&nbsp;GiB within two minutes, reached 4.03&nbsp;GiB at four minutes, then stayed flat. After that the page thread was idle, and no proof or error appeared after 14.5 minutes. This reproduces the earlier result on Windows Chromium. The prover's native peak is above what a 32-bit WebAssembly address space can hold, so in-browser proving needs a Memory64 build.</p>
+
+      <h3 class="subhead">C. Argon2id (m=8&nbsp;KiB, t=1, p=1) on a workstation with a large page file</h3>
+      <p>The native prover was run on a Windows workstation with 125.6&nbsp;GiB of RAM and a 772.5&nbsp;GiB commit limit, from RAM plus a page file on a 16&nbsp;TB hard drive. It ran at below-normal priority, sampled every 15&nbsp;s over 7 hours. <a href="data/argon2id-pagefile-run.csv">Raw data (CSV, every fourth sample)</a>.</p>
+      <figure class="xfigure">
+        <div id="chart-argon-mem"></div>
+        <figcaption>Memory committed by the prover, and the part of it held in physical RAM.</figcaption>
+      </figure>
+      <figure class="xfigure">
+        <div id="chart-argon-cpu"></div>
+        <figcaption>CPU time used by the prover per sampling interval, as a share of one core. The rest of the time it was waiting on the page file. Averaged over the unsampled gap, it was 10%.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table class="circuits compare">
+          <thead><tr><th scope="col">Phase</th><th scope="col" class="num">Elapsed</th><th scope="col" class="num">Committed</th><th scope="col" class="num">CPU use (one core)</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Execution in RAM</th><td class="num">0–4&nbsp;min</td><td class="num">130&nbsp;GiB within 15&nbsp;s</td><td class="num">~100%</td></tr>
+            <tr><th scope="row">Paging begins (monitor stalled for 55&nbsp;min)</th><td class="num">4&nbsp;min–1.1&nbsp;h</td><td class="num">130 → 148&nbsp;GiB</td><td class="num">10–16%</td></tr>
+            <tr><th scope="row">Trace processing, paging-bound</th><td class="num">1.1–4.5&nbsp;h</td><td class="num">148&nbsp;GiB</td><td class="num">7%</td></tr>
+            <tr><th scope="row">Second growth phase</th><td class="num">4.5–4.8&nbsp;h</td><td class="num">148 → 218&nbsp;GiB</td><td class="num">35%</td></tr>
+            <tr><th scope="row">Stalled on the page file</th><td class="num">4.8–7.0&nbsp;h</td><td class="num">218&nbsp;GiB</td><td class="num">0.3%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Finding.</strong> The prover committed 218&nbsp;GiB, 1.7× physical RAM. The committed memory fit within the page file, so the allocation itself succeeded, but the prover could not run efficiently from a hard drive. After the first four minutes it was waiting on disk almost all the time. The system was so busy paging that the monitoring script recorded no samples for 55 minutes (shaded in the charts). It used 31.6 minutes of CPU time in 7 hours, and in the last two hours it used 0.3% of a core. No proof was produced before the log ended at 7.0 hours. The run also used the single-threaded prover, so even with enough RAM it would have used only one core.</p>
+
+      <h3 class="subhead">Conclusions</h3>
+      <ol class="conclusions">
+        <li><strong>Verification works everywhere it was tried.</strong> Three independently generated MiMC-7 proofs verify natively and in the browser, taking 10–100&nbsp;ms each in the browser. A tampered proof is rejected by both verifiers.</li>
+        <li><strong>The memory requirement is about 2.6× higher than earlier estimates.</strong> The measured peak of about 8.5&nbsp;KB per trace row puts the smallest Argon2id proof at roughly 220–270&nbsp;GiB, consistent with the 218&nbsp;GiB committed in run C. bcrypt at cost&nbsp;4 is roughly 4&nbsp;TiB.</li>
+        <li><strong>Browser proving is blocked by the 32-bit address space, not by speed.</strong> Even MiMC-7 sits just above the 4&nbsp;GiB wasm32 limit. A Memory64 build is the direct next step.</li>
+        <li><strong>A disk-backed page file does not substitute for RAM.</strong> The proving workload's memory access pattern turns paging into a near-total stall. A full Argon2id proof needs a machine with roughly 256–512&nbsp;GiB of RAM, run with the multi-threaded prover. Alternatively, it needs a prover that streams the trace or splits the computation into segments.</li>
+      </ol>
+    </section>
