@@ -23,15 +23,18 @@ The verifier only accepts the pinned compiled program, so a client can't substit
 
 ## Status
 
-All three hashes run end to end inside the circuit, and each matches a reference implementation. Only MiMC-7 can be proved on ordinary hardware today.
+All three hashes run end to end inside the circuit, and each matches a reference implementation. Only MiMC-7 has been proved so far.
 
-| Algorithm | Computed in the circuit | VM cycles | Trace rows | Proof |
+| Circuit | Computed in the circuit | VM cycles | Trace rows | Proof generation |
 | --- | --- | ---: | ---: | --- |
-| Argon2id v1.3 (`m=8 KiB, t=1, p=1`) | RFC 9106 in full: Blake2b, H′, 1 KiB blocks, BlaMka, hybrid addressing, passes, slices, lanes | 19,593,971 | 2²⁵ | Not yet: the generic prover asked for ~102 GiB |
-| bcrypt 2b (cost 4) | Full EksBlowfish key schedule, 2^cost expansions, 64 encryptions of `OrpheanBeholderScryDoubt` | 367,224,034 | 2²⁹ | Not yet: estimated ~1.6 TiB |
-| MiMC-7 | Poseidon2 absorption of password and salt, then 220 MiMC-7 rounds | 430,204 | 2¹⁹ | Yes: 39 s natively, 172 KB proof, verified at 96-bit security |
+| Argon2id v1.3 (`m=8 KiB, t=1, p=1`) | RFC 9106 in full: Blake2b, H′, 1 KiB blocks, BlaMka, hybrid addressing, passes, slices, lanes | 19,593,971 | 2²⁵ | Not completed on 128 GiB RAM. Largest allocation 102 GiB; peak estimated ~270 GiB |
+| bcrypt 2b (cost 4) | Full EksBlowfish key schedule, 2^cost expansions, 64 encryptions of `OrpheanBeholderScryDoubt` | 367,224,034 | 2²⁹ | Estimated ~4 TiB peak |
+| MiMC-7, native | Poseidon2 absorption of password and salt, then 220 MiMC-7 rounds | 430,204 | 2¹⁹ | Proved: 39 s on a workstation, 172 KB proof, 4.25 GiB peak RSS, verified at 96-bit security |
+| MiMC-7, browser (wasm32) | Same program and prover in a Chromium tab | 430,204 | 2¹⁹ | Stalls at the 4 GiB wasm32 address-space ceiling |
 
-**Why Argon2id and bcrypt aren't proved yet.** Password hashes are deliberately expensive, and the generic Miden prover materializes the whole padded execution trace in memory. At roughly 3.2 KB per trace row, Argon2id needs about 102 GiB even at its smallest setting, and bcrypt cost 4 needs about 1.6 TiB. Browsers are capped at 4 GiB per tab, so even MiMC proving stalls there; proofs come from the native prover, and the browser verifies them.
+**Measurements.** On a 2-vCPU Linux machine, MiMC-7 proving takes 88 s with the single-threaded prover and 50 s with Miden's `concurrent` feature. Native builds now enable that feature. Peak resident memory is 4.25 GiB in both cases, about 8.5 KB per padded trace row. The larger-circuit estimates scale that figure by trace length, so treat them as orders of magnitude.
+
+**Browser proving.** Headless Chromium running the wasm32 bundle reaches about 4.0 GiB after roughly four minutes of CPU time, then stops making progress without producing a proof or an error. That matches the earlier Windows observation. The cause is that the prover's peak exceeds the 32-bit address space. A Memory64 (`wasm64`) build, supported in Chrome 133+ and Firefox 134+ with a 16 GiB JavaScript API limit, is the next step.
 
 **MiMC-7 is a protocol stand-in.** It's cheap to prove but not memory-hard, so it must not be used to store real passwords.
 
@@ -200,7 +203,8 @@ The server sets a strict Content Security Policy with no third-party origins; `'
 ## What's next
 
 - **Publish a real Argon2id proof.** Prove once on a cloud machine with 256 GiB or more of memory, then publish the proof so anyone can verify it in the browser.
-- **Prove one round in the browser.** Small circuits for a single Blowfish encryption or one Blake2b compression should fit under the 4 GiB browser limit.
+- **Memory64 browser proving.** MiMC-7 needs 4.25 GiB, just above the wasm32 limit, so a wasm64 build should allow the first in-browser proof.
+- **Segmented proving.** bcrypt and small-memory Argon2id carry little state between rounds. Splitting execution into segments linked by blinded state commitments would allow independent, parallel proofs of roughly 13 GiB each.
 - **A prover built for password hashes.** A specialized constraint system or a streaming, out-of-core prover is the open problem between this project and a practical login.
 
 ## Limitations
