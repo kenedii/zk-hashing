@@ -117,6 +117,37 @@ function wire() {
   });
 }
 
+
+// ---------- Proof gallery: verify every published proof file ----------
+function wireGallery() {
+  for (const card of document.querySelectorAll('[data-proof]')) {
+    const button = card.querySelector('button');
+    const out = card.querySelector('.gallery-result');
+    button.disabled = false;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      out.className = 'gallery-result';
+      out.textContent = 'Fetching and verifying…';
+      const started = performance.now();
+      try {
+        const response = await fetch(card.dataset.proof);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const env = parseEnvelope(await response.text());
+        const fetched = performance.now();
+        const receipt = api.verify_mimc7(env, CREDENTIAL, CHALLENGE, SALT);
+        const level = receipt.securityLevel ?? receipt.security_level;
+        out.classList.add('accepted');
+        out.textContent = `Accepted: valid STARK at ${level}-bit security, verified in ${(performance.now() - fetched).toFixed(0)} ms.`;
+      } catch (error) {
+        out.classList.add('rejected');
+        out.textContent = `Rejected: ${reason(error)} (${(performance.now() - started).toFixed(0)} ms)`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+}
+
 async function boot() {
   stageWall();
   try {
@@ -131,6 +162,7 @@ async function boot() {
     $('runtime').textContent = `Verifier ready. Proof loaded (${(envelope.proofBase64.length * 0.75 / 1024).toFixed(0)} KB).`;
     for (const id of ['act-verify', 'act-flip', 'act-replay', 'act-guess']) $(id).disabled = false;
     wire();
+    wireGallery();
   } catch (error) {
     $('st-program').textContent = 'Unavailable';
     $('runtime').classList.add('error');
