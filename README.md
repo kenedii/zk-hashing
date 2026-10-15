@@ -36,6 +36,8 @@ All three hashes run end to end inside the circuit, and each matches a reference
 
 **Browser proving.** Headless Chromium running the wasm32 bundle reaches about 4.0 GiB after roughly four minutes of CPU time, then stops making progress without producing a proof or an error. That matches the earlier Windows observation. The cause is that the prover's peak exceeds the 32-bit address space. A Memory64 (`wasm64`) build, supported in Chrome 133+ and Firefox 134+ with a 16 GiB JavaScript API limit, is the next step.
 
+**Experiment log.** The site's *Experiment log* section publishes every proof file with a one-click verifier, the raw monitoring data (`web/data/`), and the analysis. An Argon2id `m=8 KiB` proof attempt on a 125.6 GiB workstation with a page file on a hard drive committed 218 GiB of memory. After the first few minutes it was almost entirely waiting on the disk: it used 31.6 CPU-minutes in 7 hours and produced no proof. A page file on disk is not a substitute for RAM for this workload.
+
 **MiMC-7 is a protocol stand-in.** It's cheap to prove but not memory-hard, so it must not be used to store real passwords.
 
 ## Repository layout
