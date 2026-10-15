@@ -1,5 +1,5 @@
-// Showcase page: animates the memory chart once and runs the real Miden verifier
-// (built from ../runtime) against the published MiMC-7 login proof.
+// Results, verifier and experiments pages: animates the memory chart, runs the Miden
+// verifier (built from ../runtime) against the published MiMC-7 proofs.
 import { parseEnvelope } from './lib/envelope-json.js';
 
 const RUNTIME = './pkg/argon2id_zk_runtime.js';
@@ -117,13 +117,49 @@ function wire() {
   });
 }
 
+
+// ---------- Proof gallery: verify every published proof file ----------
+function wireGallery() {
+  for (const card of document.querySelectorAll('[data-proof]')) {
+    const button = card.querySelector('button');
+    const out = card.querySelector('.gallery-result');
+    button.disabled = false;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      out.className = 'gallery-result';
+      out.textContent = 'Fetching and verifying…';
+      const started = performance.now();
+      try {
+        const response = await fetch(card.dataset.proof);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const env = parseEnvelope(await response.text());
+        const fetched = performance.now();
+        const receipt = api.verify_mimc7(env, CREDENTIAL, CHALLENGE, SALT);
+        const level = receipt.securityLevel ?? receipt.security_level;
+        out.classList.add('accepted');
+        out.textContent = `Accepted: valid STARK at ${level}-bit security, verified in ${(performance.now() - fetched).toFixed(0)} ms.`;
+      } catch (error) {
+        out.classList.add('rejected');
+        out.textContent = `Rejected: ${reason(error)} (${(performance.now() - started).toFixed(0)} ms)`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+}
+
 async function boot() {
   stageWall();
+  const hasVerifier = Boolean($('act-verify'));
+  const hasGallery = document.querySelector('[data-proof]') !== null;
+  if (!hasVerifier && !hasGallery) return;
   try {
     api = await import(RUNTIME);
     const wasm = await fetch(WASM);
     if (!wasm.ok) throw new Error(`HTTP ${wasm.status} for the verifier`);
     await api.default({ module_or_path: wasm });
+    if (hasGallery) wireGallery();
+    if (!hasVerifier) return;
     const proofResponse = await fetch(PROOF);
     if (!proofResponse.ok) throw new Error(`HTTP ${proofResponse.status} for the proof file`);
     envelope = parseEnvelope(await proofResponse.text());
@@ -132,9 +168,13 @@ async function boot() {
     for (const id of ['act-verify', 'act-flip', 'act-replay', 'act-guess']) $(id).disabled = false;
     wire();
   } catch (error) {
+    if (hasGallery) {
+      for (const out of document.querySelectorAll('.gallery-result')) out.textContent = `The verifier did not load (${reason(error)}).`;
+    }
+    if (!hasVerifier) return;
     $('st-program').textContent = 'Unavailable';
     $('runtime').classList.add('error');
-    $('runtime').textContent = `The verifier didn't load (${reason(error)}). Serve the web folder over HTTP (see the README), then reload.`;
+    $('runtime').textContent = `The verifier did not load (${reason(error)}). Serve the web folder over HTTP (see the README), then reload.`;
   }
 }
 

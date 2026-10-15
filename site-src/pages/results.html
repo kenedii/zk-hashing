@@ -1,0 +1,31 @@
+<!--
+title: Results · zk-hashing
+description: Measured results for the Argon2id, bcrypt and MiMC-7 circuits: cycle counts, trace lengths, prover memory and time, and the browser and native implementations.
+section: info
+scripts: app.js
+-->
+<header class="page-head measure wide">
+  <span class="eyebrow">Info · Results</span>
+  <h1>Results</h1>
+  <p class="lede">What has been built and measured. Memory figures are measured unless marked as estimates; estimates follow the <a href="how-it-works.html#cost">cost model</a>.</p>
+</header>
+
+<section class="measure wide" aria-labelledby="findings">
+  <h2 id="findings">Summary of findings</h2>
+  <ul class="findings">
+    <li><strong>Complete circuits.</strong> RFC&nbsp;9106 Argon2id v1.3 and bcrypt&nbsp;2b execute in full as Miden programs and agree with the RustCrypto reference implementations, including on a 64-case Argon2id parameter matrix.</li>
+    <li><strong>Proof generation is memory-bound.</strong> Peak prover memory is linear in the padded trace length, at about 8.5&nbsp;KiB per row. The smallest Argon2id configuration ($2^{25}$ rows) requires an estimated 272&nbsp;GiB; bcrypt at cost&nbsp;4 ($2^{29}$ rows) about 4.3&nbsp;TiB.</li>
+    <li><strong>Verification is inexpensive.</strong> A 172&nbsp;KB MiMC-7 proof verifies in 10–100&nbsp;ms with the WebAssembly build of the verifier.</li>
+    <li><strong>Browser proving is bounded by the 32-bit address space.</strong> MiMC-7 proving peaks at 4.25&nbsp;GiB natively; the wasm32 build in Chromium reaches the 4&nbsp;GiB ceiling and makes no further progress. A Memory64 build is the direct remedy.</li>
+    <li><strong>Hash-based assumptions only.</strong> Soundness rests on collision-resistant hashing rather than on discrete-logarithm hardness, so the construction is not exposed to Shor's algorithm.</li>
+  </ul>
+</section>
+
+{{include:results-table}}
+
+
+{{include:wall}}
+
+
+{{include:impl}}
+

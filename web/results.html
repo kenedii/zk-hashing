@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Results · zk-hashing</title>
+  <meta name="description" content="Measured results for the Argon2id, bcrypt and MiMC-7 circuits: cycle counts, trace lengths, prover memory and time, and the browser and native implementations.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317202e'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%23edf0f2' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="site-bar measure wide">
+      <a class="brand" href="./" data-page="index.html">zk-hashing</a>
+      <nav class="site-nav" aria-label="Site">
+        <details class="menu">
+          <summary data-section="info" aria-current="true">Info</summary>
+          <ul class="menu-list">
+            <li><a href="what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
+            <li><a href="how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
+            <li><a href="results.html" data-page="results.html" aria-current="page"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
+            <li><a href="security.html" data-page="security.html"><b>Security analysis</b><span>Guarantees, comparison with OPAQUE, limitations</span></a></li>
+            <li><a href="research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
+          </ul>
+        </details>
+        <details class="menu">
+          <summary data-section="demos">Demos</summary>
+          <ul class="menu-list">
+            <li><a href="verify.html" data-page="verify.html"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
+            <li><a href="experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
+            <li><a href="password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
+            <li><a href="lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
+          </ul>
+        </details>
+        <a class="nav-link" href="https://github.com/kenedii/zk-hashing">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+<header class="page-head measure wide">
+  <span class="eyebrow">Info · Results</span>
+  <h1>Results</h1>
+  <p class="lede">What has been built and measured. Memory figures are measured unless marked as estimates; estimates follow the <a href="how-it-works.html#cost">cost model</a>.</p>
+</header>
+
+<section class="measure wide" aria-labelledby="findings">
+  <h2 id="findings">Summary of findings</h2>
+  <ul class="findings">
+    <li><strong>Complete circuits.</strong> RFC&nbsp;9106 Argon2id v1.3 and bcrypt&nbsp;2b execute in full as Miden programs and agree with the RustCrypto reference implementations, including on a 64-case Argon2id parameter matrix.</li>
+    <li><strong>Proof generation is memory-bound.</strong> Peak prover memory is linear in the padded trace length, at about 8.5&nbsp;KiB per row. The smallest Argon2id configuration (<span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mn>25</mn></msup></mrow></semantics></math></span> rows) requires an estimated 272&nbsp;GiB; bcrypt at cost&nbsp;4 (<span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mn>29</mn></msup></mrow></semantics></math></span> rows) about 4.3&nbsp;TiB.</li>
+    <li><strong>Verification is inexpensive.</strong> A 172&nbsp;KB MiMC-7 proof verifies in 10–100&nbsp;ms with the WebAssembly build of the verifier.</li>
+    <li><strong>Browser proving is bounded by the 32-bit address space.</strong> MiMC-7 proving peaks at 4.25&nbsp;GiB natively; the wasm32 build in Chromium reaches the 4&nbsp;GiB ceiling and makes no further progress. A Memory64 build is the direct remedy.</li>
+    <li><strong>Hash-based assumptions only.</strong> Soundness rests on collision-resistant hashing rather than on discrete-logarithm hardness, so the construction is not exposed to Shor's algorithm.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="measurements">
+      <div class="measure wide">
+        <h2 id="measurements">Circuit status</h2>
+        <p class="section-lede">All three circuits execute end to end and match reference implementations. Cycle counts are measured; memory figures are measured unless marked as estimates.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="circuits">
+          <thead>
+            <tr>
+              <th scope="col">Circuit</th>
+              <th scope="col">Computation proved</th>
+              <th scope="col" class="num">VM cycles</th>
+              <th scope="col" class="num">Trace rows</th>
+              <th scope="col">Proof generation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Argon2id v1.3<br><small>m=8&nbsp;KiB, t=1, p=1</small></th>
+              <td>RFC&nbsp;9106 in full: Blake2b, H′, 1&nbsp;KiB blocks, BlaMka, data-independent and data-dependent addressing, passes, slices and lanes. Matches RustCrypto across 64 parameter cases.</td>
+              <td class="num">19,593,971</td>
+              <td class="num">2<sup>25</sup></td>
+              <td><span class="status over">Not completed on 128&nbsp;GiB RAM. Largest allocation 102&nbsp;GiB; peak est. ~270&nbsp;GiB</span></td>
+            </tr>
+            <tr>
+              <th scope="row">bcrypt 2b<br><small>cost 4</small></th>
+              <td>Full EksBlowfish key schedule, 2<sup>cost</sup> key and salt expansions, and 64 encryptions of <code>OrpheanBeholderScryDoubt</code>. The 1,042 table words are checked against an in-circuit commitment.</td>
+              <td class="num">367,224,034</td>
+              <td class="num">2<sup>29</sup></td>
+              <td><span class="status over">~4&nbsp;TiB peak (estimate)</span></td>
+            </tr>
+            <tr>
+              <th scope="row">MiMC-7<br><small>native</small></th>
+              <td>Poseidon2 absorption of password and salt, then 220 MiMC-7 rounds. Not memory-hard; a protocol test vehicle, not a password-storage function.</td>
+              <td class="num">430,204</td>
+              <td class="num">2<sup>19</sup></td>
+              <td><span class="status fits">Proved: 39&nbsp;s on a workstation, 172&nbsp;KB, 4.25&nbsp;GiB peak</span></td>
+            </tr>
+            <tr>
+              <th scope="row">MiMC-7<br><small>in browser</small></th>
+              <td>The same program and prover, compiled to 32-bit WebAssembly and run single-threaded in a Chromium tab.</td>
+              <td class="num">430,204</td>
+              <td class="num">2<sup>19</sup></td>
+              <td><span class="status over">Stalls at the 4&nbsp;GiB wasm32 ceiling</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="measure wide table-note">All proofs use Miden VM 0.25.8 default proving options (96-bit conjectured security). Peak memory was measured as process resident set size. On a 2-vCPU Linux machine, the MiMC-7 proof takes 88&nbsp;s with the single-threaded prover and 50&nbsp;s with Miden's multi-threaded prover enabled. Estimates for larger circuits scale the measured MiMC-7 peak (about 8.5&nbsp;KB per trace row) by trace length.</p>
+    </section>
+
+
+
+<section class="wall-section" aria-labelledby="wall-title">
+      <div class="measure wide">
+        <h2 id="wall-title">The memory wall</h2>
+        <p class="section-lede">Password hashes are expensive by design, and a general-purpose prover stores every step of the computation.</p>
+      </div>
+      <figure class="wall" aria-labelledby="wall-caption">
+        <div class="wall-plot" id="wall">
+          <div class="zone zone-browser" style="--from:.0833" aria-hidden="true"></div>
+          <div class="zone zone-machine" style="--from:.2917" aria-hidden="true"></div>
+
+          <div class="limit" style="--pos:.0833">
+            <span class="limit-label">wasm32 tab<br><b>4 GiB</b></span>
+          </div>
+          <div class="limit" style="--pos:.2917">
+            <span class="limit-label">Workstation RAM<br><b>128 GiB</b></span>
+          </div>
+
+          <div class="axis" aria-hidden="true">
+            <span style="--pos:0">1 GiB</span>
+            <span style="--pos:.1667">16 GiB</span>
+            <span style="--pos:.3333">256 GiB</span>
+            <span style="--pos:.5">4 TiB</span>
+            <span style="--pos:.6667">64 TiB</span>
+            <span style="--pos:.8333">1 PiB</span>
+            <span style="--pos:1">16 PiB</span>
+          </div>
+
+          <ul class="loads">
+            <li class="load over" style="--pos:.087" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>MiMC-7</b> 4.25 GiB<small>Measured peak</small></span>
+            </li>
+            <li class="load over lift" style="--pos:.337" data-row="1">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>Argon2id, 8 KiB</b> ~270 GiB<small>Estimated peak</small></span>
+            </li>
+            <li class="load est" style="--pos:.504" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>bcrypt, cost 4</b> ~4 TiB<small>Estimated</small></span>
+            </li>
+            <li class="load est end" style="--pos:.754" data-row="1">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>bcrypt, cost 10</b> ~270 TiB<small>Extrapolated</small></span>
+            </li>
+            <li class="load est end" style="--pos:.837" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>Argon2id, 19 MiB</b> ~1.1 PiB<small>OWASP settings, extrapolated</small></span>
+            </li>
+          </ul>
+        </div>
+        <figcaption id="wall-caption" class="measure wide">Peak prover memory on a log scale; each axis step is 16× the previous. Only the MiMC-7 point is a complete measurement. The others scale its measured peak per trace row (about 8.5&nbsp;KB) by each circuit's trace length, and the extrapolated points also scale by work factor. Read them as orders of magnitude.</figcaption>
+      </figure>
+      <div class="measure">
+        <p>The prover materializes the full execution trace and its low-degree extension before committing, and the trace length is padded to the next power of two. Lowering the proof security level does not help, because the trace itself is the dominant cost. Memory therefore scales with the hash's work factor: the property that makes Argon2id and bcrypt resist guessing is exactly what makes them expensive to prove.</p>
+      </div>
+    </section>
+
+
+
+<section class="measure wide" aria-labelledby="impl">
+      <h2 id="impl">Browser and native implementations</h2>
+      <p class="section-lede">One Rust runtime is compiled to two targets: a native executable for proving, and WebAssembly for verification in the browser.</p>
+      <div class="table-wrap">
+        <table class="circuits compare">
+          <thead>
+            <tr><th scope="col"></th><th scope="col">Native prover</th><th scope="col">Browser (WebAssembly)</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Role</th><td>Generates proofs for all three circuits</td><td>Verifies proofs and computes commitments. MiMC-7 proving is attempted but exceeds the 4&nbsp;GiB limit</td></tr>
+            <tr><th scope="row">Address space</th><td>Limited by RAM and page file</td><td>4&nbsp;GiB (wasm32). Memory64 raises the JavaScript API limit to 16&nbsp;GiB in Chrome&nbsp;133+ and Firefox&nbsp;134+</td></tr>
+            <tr><th scope="row">Parallelism</th><td>Multi-threaded (Miden <code>concurrent</code> feature): 1.8× faster on 2 cores</td><td>Single-threaded</td></tr>
+            <tr><th scope="row">Verification</th><td>Milliseconds</td><td>Milliseconds</td></tr>
+            <tr><th scope="row">Artifacts</th><td>Same pinned <code>.masp</code> programs and verifier</td><td>Same pinned <code>.masp</code> programs and verifier (≈9&nbsp;MB Wasm)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">The <a href="password-demo.html">password-flow demonstration</a> does not use the STARK prover. It is a classical baseline (Argon2id with a Schnorr signature) that exercises the same message flow.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="measure wide">
+      <p>zk-hashing is a research prototype. It has not been audited and must not protect real accounts.</p>
+      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="research.html">References</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

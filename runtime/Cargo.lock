@@ -1217,6 +1217,7 @@ dependencies = [
  "p3-util",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
+ "rayon",
  "serde",
  "sha2",
  "sha3",
@@ -1811,6 +1812,9 @@ name = "p3-maybe-rayon"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6fddfd435f96394769414cf5590b77058aa506659bf20d6592e9d1989e04440"
+dependencies = [
+ "rayon",
+]
 
 [[package]]
 name = "p3-mds"
@@ -1892,6 +1896,7 @@ version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c5466fc40e6df89d3b291a2eff16b33e68e8571207790370137ec18090aadab"
 dependencies = [
+ "rayon",
  "serde",
 ]
 

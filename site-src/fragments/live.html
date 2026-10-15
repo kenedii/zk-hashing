@@ -1,0 +1,53 @@
+<section class="live-section measure wide" aria-labelledby="live-demo">
+      <h2 id="live-demo" class="visually-hidden">Interactive password flow</h2>
+      <p class="live-note"><strong>Construction.</strong> The browser computes $y = \mathrm{Argon2id}_{\theta}(w, s)$ with $\theta = (32\,\text{MiB}, 3, 1)$, derives a secp256k1 scalar $\mathsf{sk} = \mathrm{HKDF}(y) \bmod (q-1) + 1$, and at login returns a BIP-340 Schnorr signature on $\mathcal{H}(\text{protocol} \,\Vert\, \text{account} \,\Vert\, n)$. The server stores $\mathsf{pk} = \mathsf{sk}\cdot G$. This demonstrates possession of the derived key only. It does not attest to the hash or parameters used, a captured signature permits offline guessing, and the discrete-logarithm assumption on secp256k1 does not hold against a quantum adversary.</p>
+      <div class="live-forms">
+        <form id="register-form" class="live-stage">
+          <span class="step-number">01 / REGISTER</span>
+          <h3>Choose a demo password</h3>
+          <label for="register-password">Use a throwaway password</label>
+          <input id="register-password" type="password" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Make one up…" required>
+          <button id="register-button" type="submit">Register in the browser</button>
+          <p>Only the public key, random salt and hash parameters leave this tab.</p>
+        </form>
+        <form id="login-form" class="live-stage" aria-labelledby="login-stage">
+          <span class="step-number">02 / SIGN &amp; VERIFY</span>
+          <h3 id="login-stage">Log in</h3>
+          <label for="login-password">Enter the password you registered</label>
+          <input id="login-password" type="password" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Same password, or a wrong one…" required disabled>
+          <button id="login-button" type="submit" disabled>Sign &amp; verify on the server</button>
+          <p>The server issues a new challenge and checks the signature against its stored public key.</p>
+        </form>
+      </div>
+      <div class="live-verdict">
+        <p id="live-status" role="status" aria-live="polite">Choose a password to start. No account or email needed.</p>
+        <small id="live-timing"></small>
+        <button id="replay-button" type="button" class="secondary" disabled>Replay the last signature</button>
+      </div>
+      <div class="live-inspect">
+        <article class="inspect-panel browser-panel">
+          <span class="side">In the browser</span>
+          <h3>Secret material stays local</h3>
+          <p id="local-computation">The password and Argon2id output are used locally to derive a private signing key.</p>
+          <label class="hash-toggle"><input id="reveal-hash" type="checkbox"> Reveal the local Argon2id output</label>
+          <pre id="local-hash" hidden>Run a registration or login first.</pre>
+          <dl class="live-values">
+            <div><dt>Server challenge</dt><dd><code id="live-challenge">Waiting for a login</code></dd></div>
+            <div><dt>64-byte signature sent</dt><dd><code id="live-proof">Waiting for a login</code></dd></div>
+          </dl>
+        </article>
+        <article class="inspect-panel server-panel">
+          <span class="side">On the Cloud Run server</span>
+          <h3>Stored record</h3>
+          <pre id="server-record">No registration yet.</pre>
+          <p><strong>Last request fields:</strong> <span id="server-fields">None yet</span></p>
+          <p id="privacy-receipt" class="privacy-receipt" hidden></p>
+        </article>
+      </div>
+      <details class="network-view">
+        <summary>Inspect the network requests</summary>
+        <p>These are the exact JSON bodies passed to <code>fetch</code>; they also appear under <code>/api/demo/</code> in the browser's Network tab. The server rejects any additional fields.</p>
+        <pre id="network-transcript">No requests yet.</pre>
+      </details>
+      <p class="live-footnote">Demo accounts are held in memory and expire after 30 minutes or a server restart.</p>
+    </section>

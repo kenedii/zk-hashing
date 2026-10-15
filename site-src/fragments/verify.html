@@ -1,0 +1,33 @@
+<section class="verify-section" aria-labelledby="try">
+      <div class="measure">
+        
+        <p>In this scenario you act as the server. A client registered with the password <code>hunter2</code>, received the challenge below and returned a MiMC-7 proof. The statement values are taken from the server's records.</p>
+      </div>
+
+      <div class="verifier">
+        <dl class="statement">
+          <div><dt>Salt</dt><dd><code>000102030405060708090a0b0c0d0e0f</code></dd></div>
+          <div><dt>Issued challenge</dt><dd><code id="st-challenge">305419896, 2596069104, 267242409, 2271560481</code></dd></div>
+          <div><dt>Stored commitment</dt><dd><code id="st-credential">8370215289663149514, 8090811050392849221, 9444347110279816554, 1235188709954996380</code></dd></div>
+          <div><dt>Program hash</dt><dd><code id="st-program">Loading…</code></dd></div>
+        </dl>
+
+        <div class="actions">
+          <button type="button" id="act-verify" disabled>Verify the login</button>
+          <button type="button" id="act-flip" class="secondary" disabled>Flip one bit, then verify</button>
+          <button type="button" id="act-replay" class="secondary" disabled>Replay against a new challenge</button>
+          <form id="guess-form" class="guess">
+            <label for="guess">Check against another password's commitment</label>
+            <div class="guess-row">
+              <input id="guess" name="guess" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="hunter3" required>
+              <button type="submit" class="secondary" id="act-guess" disabled>Check password</button>
+            </div>
+          </form>
+        </div>
+
+        <p class="runtime" id="runtime" role="status">Loading the verifier (9&nbsp;MB)…</p>
+        <ol class="results" id="results" aria-live="polite"></ol>
+      </div>
+
+      <p class="measure lab-link">To compute commitments for all three algorithms or verify your own proof files, open the <a href="lab/">full lab</a>.</p>
+    </section>
