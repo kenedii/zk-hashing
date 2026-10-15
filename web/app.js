@@ -1,5 +1,5 @@
-// Showcase page: animates the memory chart once and runs the real Miden verifier
-// (built from ../runtime) against the published MiMC-7 login proof.
+// Results, verifier and experiments pages: animates the memory chart, runs the Miden
+// verifier (built from ../runtime) against the published MiMC-7 proofs.
 import { parseEnvelope } from './lib/envelope-json.js';
 
 const RUNTIME = './pkg/argon2id_zk_runtime.js';
@@ -150,11 +150,16 @@ function wireGallery() {
 
 async function boot() {
   stageWall();
+  const hasVerifier = Boolean($('act-verify'));
+  const hasGallery = document.querySelector('[data-proof]') !== null;
+  if (!hasVerifier && !hasGallery) return;
   try {
     api = await import(RUNTIME);
     const wasm = await fetch(WASM);
     if (!wasm.ok) throw new Error(`HTTP ${wasm.status} for the verifier`);
     await api.default({ module_or_path: wasm });
+    if (hasGallery) wireGallery();
+    if (!hasVerifier) return;
     const proofResponse = await fetch(PROOF);
     if (!proofResponse.ok) throw new Error(`HTTP ${proofResponse.status} for the proof file`);
     envelope = parseEnvelope(await proofResponse.text());
@@ -162,11 +167,14 @@ async function boot() {
     $('runtime').textContent = `Verifier ready. Proof loaded (${(envelope.proofBase64.length * 0.75 / 1024).toFixed(0)} KB).`;
     for (const id of ['act-verify', 'act-flip', 'act-replay', 'act-guess']) $(id).disabled = false;
     wire();
-    wireGallery();
   } catch (error) {
+    if (hasGallery) {
+      for (const out of document.querySelectorAll('.gallery-result')) out.textContent = `The verifier did not load (${reason(error)}).`;
+    }
+    if (!hasVerifier) return;
     $('st-program').textContent = 'Unavailable';
     $('runtime').classList.add('error');
-    $('runtime').textContent = `The verifier didn't load (${reason(error)}). Serve the web folder over HTTP (see the README), then reload.`;
+    $('runtime').textContent = `The verifier did not load (${reason(error)}). Serve the web folder over HTTP (see the README), then reload.`;
   }
 }
 

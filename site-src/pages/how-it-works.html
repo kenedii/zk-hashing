@@ -1,0 +1,155 @@
+<!--
+title: How it works · zk-hashing
+description: The zk-hashing construction in detail: notation, commitments, the proved relation, the login protocol, arithmetization of the hash function, FRI, Fiat–Shamir, soundness and the prover cost model.
+section: info
+scripts:
+-->
+<header class="page-head measure">
+  <span class="eyebrow">Info · Technical description</span>
+  <h1>How it works</h1>
+  <p class="lede">A precise description of the construction for readers comfortable with basic algebra and cryptographic definitions. The plain-language version is on <a href="what-is-this.html">What is this?</a></p>
+  <nav class="toc" aria-label="On this page">
+    <ol>
+      <li><a href="#notation">Notation</a></li>
+      <li><a href="#registration">Registration and commitment</a></li>
+      <li><a href="#relation">The proved relation and the login protocol</a></li>
+      <li><a href="#properties">Required properties</a></li>
+      <li><a href="#arithmetization">Arithmetization</a></li>
+      <li><a href="#fri">Low-degree testing and Fiat–Shamir</a></li>
+      <li><a href="#soundness">Soundness and proof size</a></li>
+      <li><a href="#hashes">The three hash functions</a></li>
+      <li><a href="#cost">Prover cost model</a></li>
+    </ol>
+  </nav>
+</header>
+
+<article class="measure prose">
+  <section aria-labelledby="notation">
+    <h2 id="notation">1. Notation</h2>
+    <p>All arithmetic in the proof system takes place in the Goldilocks prime field</p>
+    $$p = 2^{64} - 2^{32} + 1, \qquad \mathbb{F}_p = \mathbb{Z}/p\mathbb{Z}.$$
+    <p>Since $p - 1 = 2^{32} \cdot 3 \cdot 5 \cdot 17 \cdot 257 \cdot 65537$, the multiplicative group $\mathbb{F}_p^{\times}$ contains a cyclic subgroup of every order $2^k$ with $k \le 32$. This is what makes fast power-of-two evaluation domains available.</p>
+    <ul>
+      <li>$w \in \{0,1\}^{8\ell}$, $1 \le \ell \le 64$: the password (the witness).</li>
+      <li>$s \in \{0,1\}^{128}$: a per-user random salt.</li>
+      <li>$\theta$: the hash parameters, for example $\theta = (m, t, p_{\mathrm{lanes}})$ for Argon2id.</li>
+      <li>$H_\theta(w, s)$: the password hash (Argon2id, bcrypt or MiMC-7) with output $y$.</li>
+      <li>$\mathsf{P2}$: a sponge built on the Poseidon2 permutation over $\mathbb{F}_p$, with output in $\mathbb{F}_p^4$.</li>
+      <li>$P$: the compiled Miden program that evaluates the statement; $h_P \in \mathbb{F}_p^4$ is its program hash.</li>
+      <li>$n \in \{0,1\}^{128}$: a single-use challenge (nonce) issued by the server.</li>
+      <li>$a \xleftarrow{\mathrm{R}} S$: $a$ is sampled uniformly at random from the set $S$.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="registration">
+    <h2 id="registration">2. Registration and commitment</h2>
+    <p>At registration the client samples $s \xleftarrow{\mathrm{R}} \{0,1\}^{128}$, computes $y = H_\theta(w, s)$ and sends the commitment</p>
+    $$C = \mathsf{P2}\big(\tau_{\mathrm{alg}} \,\Vert\, y_1, \dots, y_{|y|} \,\Vert\, s_1, \dots, s_{16} \,\Vert\, \theta\big) \in \mathbb{F}_p^4$$
+    <p>together with $s$ and $\theta$. Here $\tau_{\mathrm{alg}}$ is a domain-separation tag for the algorithm, and every output byte $y_i$ and salt byte $s_i$ occupies its own field element. Encoding each byte separately, with explicit lengths and tags, makes the encoding injective, so two different tuples $(y, s, \theta)$ cannot collide through ambiguous packing.</p>
+    <p>The server stores $(C, s, \theta)$. $C$ is <em>binding</em>: finding a second password with the same commitment requires either a collision in $\mathsf{P2}$ or a second preimage of $H_\theta$. $C$ is <em>not hiding</em>: it is a deterministic function of $w$, so anyone holding $C$ can test a candidate $w'$ by recomputing it. This is the same exposure as a conventional password-hash table, and the cost of each guess is dominated by evaluating $H_\theta$.</p>
+  </section>
+
+  <section aria-labelledby="relation">
+    <h2 id="relation">3. The proved relation and the login protocol</h2>
+    <p>For a fixed program $P$, the proof system proves membership in the NP relation</p>
+    $$\begin{aligned}
+      \mathcal{R}_P = \Big\{ \big(x, w\big) \;:\;\; & x = (C, s, \theta, n),\;\; 1 \le |w| \le 64, \\
+      & \mathsf{P2}\big(\tau_{\mathrm{alg}} \,\Vert\, H_\theta(w, s) \,\Vert\, s \,\Vert\, \theta\big) = C \Big\}.
+    \end{aligned}$$
+    <p>The challenge $n$ plays no role in the predicate itself. It is a public input of the program, and public inputs are absorbed into the Fiat–Shamir transcript (Section 6). A proof generated for $n$ therefore does not verify for any $n' \neq n$, which is what binds the proof to a single login attempt.</p>
+    <p>A login then consists of two messages:</p>
+    <ol>
+      <li>The server samples $n \xleftarrow{\mathrm{R}} \{0,1\}^{128}$ and sends it to the client.</li>
+      <li>The client computes $\pi \leftarrow \mathsf{Prove}\big(P, x, w\big)$ with $x = (C, s, \theta, n)$ and sends $\pi$.</li>
+    </ol>
+    <p>The server accepts if and only if</p>
+    $$\mathsf{Verify}\big(h_P, x, \pi\big) = 1 \quad\text{and}\quad n \notin \mathcal{N}_{\mathrm{spent}},$$
+    <p>after which it sets $\mathcal{N}_{\mathrm{spent}} \leftarrow \mathcal{N}_{\mathrm{spent}} \cup \{n\}$. The verifier takes $C$, $s$, $\theta$ and $n$ from its own records, never from the proof envelope, and pins $h_P$, so a client cannot substitute a cheaper program. With $q$ challenges issued over the lifetime of the system, the probability that any two coincide is at most $q^2 / 2^{129}$.</p>
+  </section>
+
+  <section aria-labelledby="properties">
+    <h2 id="properties">4. Required properties</h2>
+    <p>Let $(\mathsf{Prove}, \mathsf{Verify})$ be a non-interactive argument for $\mathcal{R}_P$. Three properties matter for authentication.</p>
+    <dl class="definitions">
+      <dt>Completeness</dt>
+      <dd>An honest client is always accepted: $\Pr\big[\mathsf{Verify}(h_P, x, \mathsf{Prove}(P, x, w)) = 1\big] = 1$ for all $(x, w) \in \mathcal{R}_P$.</dd>
+      <dt>Knowledge soundness</dt>
+      <dd>For every efficient prover $\mathcal{P}^*$ there is an efficient extractor $\mathcal{E}$, with oracle access to $\mathcal{P}^*$, such that
+        $$\Pr\Big[\mathsf{Verify}(h_P, x, \pi^*) = 1 \;\wedge\; \big(x, \mathcal{E}^{\mathcal{P}^*}(x)\big) \notin \mathcal{R}_P\Big] \le \kappa,$$
+        where $\kappa$ is the knowledge error. An accepted proof thus implies knowledge of a valid password, not merely the existence of one.</dd>
+      <dt>Zero knowledge</dt>
+      <dd>There is an efficient simulator $\mathcal{S}$ that, given only $x$, produces proofs indistinguishable from real ones:
+        $\{\mathsf{Prove}(P, x, w)\} \approx \{\mathcal{S}(x)\}$ for all $(x, w) \in \mathcal{R}_P$.</dd>
+    </dl>
+    <p>The current implementation provides completeness and, under the usual conjectures, knowledge soundness at the 96-bit level. It does <em>not</em> provide zero knowledge. The prover does not randomize the execution trace, so the committed polynomials are deterministic functions of $w$. The consequences are discussed in the <a href="security.html">Security analysis</a>.</p>
+  </section>
+
+  <section aria-labelledby="arithmetization">
+    <h2 id="arithmetization">5. Arithmetization</h2>
+    <p>Running $P$ on $(x, w)$ for $L$ cycles produces an execution trace, a matrix whose rows are successive machine states:</p>
+    $$T \in \mathbb{F}_p^{N \times k}, \qquad N = 2^{\lceil \log_2 L \rceil}.$$
+    <p>Let $\omega$ generate the subgroup $\mathcal{H} = \langle \omega \rangle$ of order $N$. Each column $j$ is interpolated to a polynomial $t_j \in \mathbb{F}_p[X]$ with $\deg t_j \lt N$ and $t_j(\omega^i) = T_{i,j}$. The VM's semantics are expressed as an algebraic intermediate representation (AIR): a set of low-degree polynomials $f_\ell$ such that consecutive rows are valid exactly when</p>
+    $$f_\ell\big(t(X),\, t(\omega X)\big) = 0 \qquad \text{for all } X \in \mathcal{H} \setminus \{\omega^{N-1}\},$$
+    <p>together with boundary constraints that fix the public inputs $x$ and the output $[1]$ in the first and last rows. A polynomial vanishes on a set exactly when it is divisible by that set's vanishing polynomial. Since $Z_{\mathcal{H}}(X) = \prod_{h \in \mathcal{H}}(X - h) = X^N - 1$, the constraints hold if and only if each</p>
+    $$q_\ell(X) = \frac{f_\ell\big(t(X), t(\omega X)\big)\,\big(X - \omega^{N-1}\big)}{X^N - 1}$$
+    <p>is a polynomial, of degree below $(d_\ell - 1)N + 1$ where $d_\ell = \deg f_\ell$. The verifier draws random weights $\alpha_\ell$ and works with the single composition polynomial $q(X) = \sum_\ell \alpha_\ell\, q_\ell(X)$.</p>
+    <p>The prover evaluates every $t_j$ and $q$ on a larger coset $\mathcal{D} = g\langle\mu\rangle$ with $|\mathcal{D}| = \beta N$; this is the <em>low-degree extension</em>, with blowup factor $\beta$. It then commits to the evaluations with Merkle trees. Holding $T$, its extension and the trees in memory is what makes prover memory grow linearly in $N$ (Section 9).</p>
+    <p>Password hashes are expensive to arithmetize because they are built from 64-bit word operations. Argon2id's BlaMka mixing step, for example, computes</p>
+    $$a \leftarrow a + b + 2\cdot \mathrm{lo}_{32}(a)\cdot\mathrm{lo}_{32}(b) \bmod 2^{64}.$$
+    <p>Wrap-around modulo $2^{64}$ is not native to $\mathbb{F}_p$, so each 64-bit word is represented by two 32-bit limbs with range checks, and every addition, rotation and XOR expands into several VM cycles.</p>
+  </section>
+
+  <section aria-labelledby="fri">
+    <h2 id="fri">6. Low-degree testing and Fiat–Shamir</h2>
+    <p>The verifier samples an out-of-domain point $z \notin \mathcal{D}$. The prover reveals $t(z)$, $t(\omega z)$ and $q(z)$, and the verifier checks the constraint identity at $z$. What remains is to show that the committed evaluations really come from polynomials of the claimed degree. Equivalently, the prover must show that quotients such as</p>
+    $$\frac{t_j(X) - t_j(z)}{X - z}$$
+    <p>are low-degree. This is done with FRI (Fast Reed–Solomon Interactive Oracle Proof of Proximity). In each round, a function $f^{(i)}$ on a domain $\mathcal{D}_i$ is folded with a random $\gamma_i$:</p>
+    $$f^{(i+1)}\big(X^2\big) = \frac{f^{(i)}(X) + f^{(i)}(-X)}{2} + \gamma_i\,\frac{f^{(i)}(X) - f^{(i)}(-X)}{2X}.$$
+    <p>Each fold halves both the degree bound and the domain. After about $\log_2 N$ rounds the remaining function is a constant, sent in the clear. The verifier then checks fold consistency at $q$ randomly chosen positions, using Merkle authentication paths.</p>
+    <p>The protocol above is interactive. The Fiat–Shamir transformation makes it non-interactive by replacing each verifier challenge with a hash of the transcript so far:</p>
+    $$\rho_i = \mathcal{H}\big(x \,\Vert\, \mathrm{root}_1 \,\Vert\, \cdots \,\Vert\, \mathrm{root}_i\big).$$
+    <p>Because the public input $x$ (and so $n$) enters the very first hash, every challenge, and therefore the whole proof, depends on it. Since $|\mathbb{F}_p| \approx 2^{64}$ is too small for the required error bounds, random challenges are drawn from an extension field of $\mathbb{F}_p$.</p>
+  </section>
+
+  <section aria-labelledby="soundness">
+    <h2 id="soundness">7. Soundness and proof size</h2>
+    <p>Under the standard conjecture on the proximity gap of Reed–Solomon codes, each FRI query catches a prover whose committed function is far from low-degree with probability about $1 - 1/\beta$. A <em>grinding</em> (proof-of-work) condition of $g$ bits further raises the cost of searching for favourable Fiat–Shamir challenges. The conjectured security level is then approximately</p>
+    $$\lambda \approx \min\big\{\, q \log_2 \beta + g,\;\; \lambda_{\mathcal{H}} \,\big\},$$
+    <p>where $\lambda_{\mathcal{H}}$ is the collision resistance of the hash used for commitments. For example, $q = 27$ queries with $\beta = 8$ and $g = 16$ give $27 \cdot 3 + 16 = 97$ bits; the proofs here are generated at Miden's 96-bit level. Proof size and verification time are polylogarithmic in the computation length: $O\big(q \log^2 N\big)$ hash digests and field elements. This is why a 2<sup>19</sup>-row execution yields a 172&nbsp;KB proof that verifies in milliseconds.</p>
+  </section>
+
+  <section aria-labelledby="hashes">
+    <h2 id="hashes">8. The three hash functions</h2>
+    <h3>Argon2id (RFC&nbsp;9106)</h3>
+    <p>A memory-hard function. It fills $m$ blocks of 1&nbsp;KiB, in $t$ passes over $p_{\mathrm{lanes}}$ lanes. Each block is computed by a compression function built from BlaMka-modified Blake2b rounds, applied to the previous block and to a reference block. Reference indices are data-independent in the first half of the first pass and data-dependent afterwards. The circuit implements the full algorithm, including the initial hash $H_0$, the variable-length hash $H'$ and the final tag. It agrees with RustCrypto on 64 parameter cases.</p>
+    <h3>bcrypt 2b</h3>
+    <p>Based on the Blowfish key schedule. EksBlowfish initializes the 18-word P-array and four 256-word S-boxes from the hexadecimal digits of $\pi$. It mixes in the salt and password with $\mathsf{ExpandKey}(\mathsf{state}, s, w)$, then performs $2^{\mathrm{cost}}$ iterations of</p>
+    $$\mathsf{state} \leftarrow \mathsf{ExpandKey}(\mathsf{state}, 0, w), \qquad \mathsf{state} \leftarrow \mathsf{ExpandKey}(\mathsf{state}, 0, s),$$
+    <p>and finally encrypts the string <code>OrpheanBeholderScryDoubt</code> 64 times. The 1,042 table words are supplied as advice, range-checked and matched against an in-circuit commitment to the standard constants.</p>
+    <h3>MiMC-7 (test function)</h3>
+    <p>An arithmetization-oriented function used to exercise the protocol at low cost. The password and salt are first absorbed with Poseidon2 into $x_0 \in \mathbb{F}_p$, then 220 rounds are applied:</p>
+    $$x_{r+1} = \big(x_r + c_r\big)^7, \qquad r = 0, \dots, 219,$$
+    <p>with fixed round constants $c_r$. Since $\gcd(7, p - 1) = 1$, the map $u \mapsto u^7$ is a permutation of $\mathbb{F}_p$, and each round is a single degree-7 constraint. MiMC-7 is not memory-hard, so it gives no meaningful resistance to password guessing; it serves only as a test vehicle.</p>
+  </section>
+
+  <section aria-labelledby="cost">
+    <h2 id="cost">9. Prover cost model</h2>
+    <p>The prover materializes $T$, its $\beta$-fold extension, the composition polynomial and the Merkle trees, so peak memory is linear in the padded trace length:</p>
+    $$M(L) \approx c \cdot 2^{\lceil \log_2 L \rceil}.$$
+    <p>The MiMC-7 measurement ($L = 430{,}204$, $N = 2^{19}$, peak 4.25&nbsp;GiB) gives $c \approx 8.5$&nbsp;KiB per row. For Argon2id the cycle count scales with the work $m \cdot t$. The measured $L = 19{,}593{,}971$ at $m = 8$, $t = 1$ corresponds to roughly $\kappa \approx 2.4 \times 10^6$ cycles per KiB-pass, so</p>
+    $$M_{\mathrm{Argon2id}}(m, t) \approx c \cdot 2^{\lceil \log_2(\kappa\, m\, t) \rceil}.$$
+    <div class="table-wrap">
+      <table class="circuits compare">
+        <thead><tr><th scope="col">Configuration</th><th scope="col" class="num">Cycles $L$</th><th scope="col" class="num">Rows $N$</th><th scope="col" class="num">Peak memory $M$</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">MiMC-7</th><td class="num">430,204 (measured)</td><td class="num">$2^{19}$</td><td class="num">4.25 GiB (measured)</td></tr>
+          <tr><th scope="row">Argon2id, $m = 8$, $t = 1$</th><td class="num">19,593,971 (measured)</td><td class="num">$2^{25}$</td><td class="num">≈ 272 GiB</td></tr>
+          <tr><th scope="row">bcrypt, cost 4</th><td class="num">367,224,034 (measured)</td><td class="num">$2^{29}$</td><td class="num">≈ 4.3 TiB</td></tr>
+          <tr><th scope="row">bcrypt, cost 10</th><td class="num">≈ 2.3 × 10<sup>10</sup></td><td class="num">$2^{35}$</td><td class="num">≈ 272 TiB</td></tr>
+          <tr><th scope="row">Argon2id, $m = 19456$, $t = 2$ (OWASP)</th><td class="num">≈ 9.5 × 10<sup>10</sup></td><td class="num">$2^{37}$</td><td class="num">≈ 1.1 PiB</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The model is first order: it ignores fixed overheads and assumes $c$ is the same for every program. It does agree with the Argon2id run on a 125.6&nbsp;GiB workstation, which committed 218&nbsp;GiB before stalling on disk paging (see <a href="experiments.html">Experiments</a>). Memory scales with the hash's work factor, and the work factor is precisely what makes the hash resist guessing, so general-purpose STARK provers are poorly matched to password hashing. The <a href="research.html">Future work</a> page discusses ways around this.</p>
+  </section>
+</article>

@@ -9,7 +9,8 @@ const { chromium } = require('playwright-core');
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('request', (request) => { if (request.url().includes('/api/demo/')) requests.push({ url: request.url(), body: request.postData() }); });
   try {
-    await page.goto(process.env.ZK_DEMO_URL || 'http://127.0.0.1:8080/', { waitUntil: 'networkidle' });
+    const base = (process.env.ZK_DEMO_URL || 'http://127.0.0.1:8080/').replace(/\/?$/, '/');
+    await page.goto(`${base}password-demo.html`, { waitUntil: 'networkidle' });
     const password = 'browser demo secret ☕';
     await page.fill('#register-password', password);
     await page.click('#register-button');
@@ -38,16 +39,17 @@ const { chromium } = require('playwright-core');
       if (request.url.endsWith('/register')) assert.deepEqual(Object.keys(data), ['publicKey', 'salt', 'parameters']);
       if (request.url.endsWith('/verify')) assert.deepEqual(Object.keys(data), ['accountId', 'challengeId', 'proof']);
     }
-    // The original full STARK verifier must still accept the published proof.
-    await page.locator('#act-verify:not([disabled])').waitFor({ timeout: 120000 });
-    await page.click('#act-verify');
-    await page.locator('#results .accepted').waitFor();
-    assert.deepEqual(errors, []);
-    await page.locator('#live-demo').scrollIntoViewIfNeeded();
     if (process.env.SMOKE_SCREENSHOT) await page.locator('.live-section').screenshot({ path: process.env.SMOKE_SCREENSHOT });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'mobile page overflows');
     if (process.env.SMOKE_MOBILE_SCREENSHOT) await page.locator('.live-section').screenshot({ path: process.env.SMOKE_MOBILE_SCREENSHOT });
+    // The full STARK verifier must still accept the published proof.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${base}verify.html`, { waitUntil: 'networkidle' });
+    await page.locator('#act-verify:not([disabled])').waitFor({ timeout: 120000 });
+    await page.click('#act-verify');
+    await page.locator('#results .accepted').waitFor();
+    assert.deepEqual(errors, []);
     console.log(JSON.stringify({ ok: true, verified: true, wrongPasswordRejected: true, replayRejected: true, secretAbsentFromRequests: true, starkVerifierWorking: true, apiRequests: requests.length }, null, 2));
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

@@ -1,0 +1,131 @@
+<!--
+title: What is this? · zk-hashing
+description: A plain-language introduction to zk-hashing: the problem with sending passwords to servers, how a zero-knowledge proof avoids it, an interactive toy example, and the trade-offs.
+section: info
+scripts: toy.js
+-->
+<header class="page-head measure">
+  <span class="eyebrow">Info · Plain-language overview</span>
+  <h1>What is this?</h1>
+  <p class="lede">A short explanation for readers without a cryptography background: the problem this project addresses, the idea behind the solution, and what it does and does not achieve.</p>
+</header>
+
+<section class="measure" aria-labelledby="problem">
+  <h2 id="problem">The problem</h2>
+  <p>When you sign in to a website, your browser sends your password to the website's server. The connection is encrypted with HTTPS, so other people on the network cannot read it. The server itself, however, receives the password in readable form. It then hashes the password and compares the result with the value it stored when you registered.</p>
+  <p>That moment of exposure matters for several reasons:</p>
+  <ul class="plain-list">
+    <li><strong>Server compromise.</strong> An attacker who controls the server, even briefly, can record every password as users sign in. Stealing the stored hashes only allows slow guessing; observing live logins reveals passwords directly.</li>
+    <li><strong>Accidental logging.</strong> Large services have disclosed incidents in which passwords were written to internal logs in readable form by mistake.</li>
+    <li><strong>Intermediaries.</strong> HTTPS is often terminated before the request reaches the application, at a load balancer, content delivery network or corporate inspection proxy. Each of these sees the password.</li>
+    <li><strong>Password reuse.</strong> Many people use the same password on several sites, so a password exposed at one service puts accounts elsewhere at risk.</li>
+  </ul>
+  <p>Encryption protects the password <em>on the way</em> to the server. It does nothing once the password arrives. The question this project asks is whether the server needs to receive it at all.</p>
+</section>
+
+<section class="measure" aria-labelledby="idea">
+  <h2 id="idea">The idea: prove you know it, without revealing it</h2>
+  <p>A <strong>zero-knowledge proof</strong> lets one party (the <em>prover</em>) convince another (the <em>verifier</em>) that a statement is true without revealing why it is true. Here the statement is:</p>
+  <blockquote class="statement-quote">"I know a password which, when hashed with the salt and settings you stored for me, produces the value you registered."</blockquote>
+  <p>Your browser performs the full password hash itself and produces a short proof of that statement. The server checks the proof. If the check passes, the server is convinced that you know the password, yet it never received the password or anything it could reuse to sign in as you.</p>
+</section>
+
+<section class="measure wide toy-section" aria-labelledby="toy">
+  <div class="measure">
+    <h2 id="toy">A toy example: the cave with a locked door</h2>
+    <p>This classic illustration, due to Quisquater and colleagues, captures the essential mechanism. A ring-shaped cave has one entrance, which splits into a left and a right passage. Deep inside, the two passages are joined by a door that opens only with a secret code.</p>
+    <p>The prover claims to know the code. To test the claim without learning the code, the verifier waits outside while the prover walks into one passage, chosen at random and out of sight. The verifier then calls out which passage the prover must come back through. A prover who knows the code can always comply, passing through the door if necessary. A prover who does not know it can only comply if they happened to choose that passage, which happens half the time.</p>
+  </div>
+
+  <div class="toy" id="toy-app">
+    <figure class="toy-figure">
+      <svg id="cave" viewBox="0 0 320 300" role="img" aria-labelledby="cave-title">
+        <title id="cave-title">Diagram of a ring-shaped cave with a left passage, a right passage and a door joining them at the far end</title>
+        <path class="rock" d="M160 18c-80 0-136 52-136 122 0 60 40 104 98 118v26h76v-26c58-14 98-58 98-118 0-70-56-122-136-122zm0 52c46 0 78 30 78 70 0 36-30 62-78 62s-78-26-78-62c0-40 32-70 78-70z"/>
+        <path id="path-left" class="passage" d="M160 270 L160 236 C 96 232 52 196 52 140 C 52 84 100 44 152 42"/>
+        <path id="path-right" class="passage" d="M160 270 L160 236 C 224 232 268 196 268 140 C 268 84 220 44 168 42"/>
+        <rect id="door" class="door" x="152" y="30" width="16" height="24" rx="2"/>
+        <text class="cave-label" x="34" y="150" text-anchor="middle">Left</text>
+        <text class="cave-label" x="286" y="150" text-anchor="middle">Right</text>
+        <text class="cave-label" x="160" y="24" text-anchor="middle">Door</text>
+        <text class="cave-label" x="160" y="294" text-anchor="middle">Entrance</text>
+        <circle id="prover-dot" class="prover-dot" cx="160" cy="270" r="7"/>
+      </svg>
+      <figcaption id="toy-caption">Choose a prover and run a round.</figcaption>
+    </figure>
+
+    <div class="toy-controls">
+      <fieldset>
+        <legend>The prover</legend>
+        <label><input type="radio" name="prover" value="honest" id="prover-honest" checked> Knows the door code</label>
+        <label><input type="radio" name="prover" value="guessing" id="prover-guessing"> Does not know the code</label>
+      </fieldset>
+      <div class="toy-buttons">
+        <button type="button" id="toy-one">Run one round</button>
+        <button type="button" id="toy-ten" class="secondary">Run 10 rounds</button>
+        <button type="button" id="toy-reset" class="secondary">Start over</button>
+      </div>
+      <dl class="toy-stats">
+        <div><dt>Rounds passed</dt><dd id="toy-passed">0</dd></div>
+        <div><dt>Chance a guessing prover survives this many rounds</dt><dd id="toy-chance">1</dd></div>
+      </dl>
+      <p id="toy-verdict" class="toy-verdict" role="status" aria-live="polite">No rounds yet.</p>
+      <ol id="toy-log" class="toy-log" aria-label="Round log"></ol>
+    </div>
+  </div>
+
+  <div class="measure">
+    <h3 class="subhead">What the example shows</h3>
+    <ul class="plain-list">
+      <li><strong>Soundness.</strong> A prover without the code is caught with probability ½ in each round. After $n$ rounds the probability of escaping detection is $2^{-n}$: below one in a million after 20 rounds.</li>
+      <li><strong>Completeness.</strong> A prover who knows the code passes every round.</li>
+      <li><strong>Zero knowledge.</strong> The verifier learns nothing about the code itself. A recording of the rounds would not even convince a third party, because the prover and verifier could have agreed on the called passages in advance. Formally, anything the verifier sees could have been produced without the secret; this is what "zero knowledge" means.</li>
+    </ul>
+
+    <h3 class="subhead">From the cave to a password login</h3>
+    <div class="table-wrap">
+      <table class="circuits compare">
+        <thead><tr><th scope="col">In the toy example</th><th scope="col">In zk-hashing</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">The door code</th><td>Your password</td></tr>
+          <tr><th scope="row">Walking through the cave</th><td>Computing the full password hash (Argon2id or bcrypt) inside a virtual machine that records every step</td></tr>
+          <tr><th scope="row">The verifier's random call</th><td>The server's fresh challenge, plus random spot checks of the recorded computation</td></tr>
+          <tr><th scope="row">Repeating many rounds</th><td>Checking a few dozen random positions in the recorded computation; each check catches a cheating prover with a fixed probability</td></tr>
+          <tr><th scope="row">Shouting back and forth</th><td>Replaced by a single message: the random checks are derived from a hash of the prover's own commitments (the Fiat–Shamir technique), so the proof can be sent in one step</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The <a href="how-it-works.html">How it works</a> page gives the precise version of each row.</p>
+  </div>
+</section>
+
+<section class="measure" aria-labelledby="tradeoffs">
+  <h2 id="tradeoffs">Advantages and drawbacks</h2>
+  <div class="pros-cons">
+    <div>
+      <h3>What the approach offers</h3>
+      <ul class="plain-list">
+        <li>The server never receives the password, or any value it could replay to sign in as the user.</li>
+        <li>The server can confirm that the client ran the exact registered hash function with the registered settings, because the proof is tied to one specific program.</li>
+        <li>Anyone holding the public values can check a proof; no secret key is needed to verify.</li>
+        <li>The proofs rely only on hash functions, so there is no known way for a future quantum computer to forge them. Several current password protocols rely on mathematics that a large quantum computer could break.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What it costs, and what it does not solve</h3>
+      <ul class="plain-list">
+        <li>Producing a proof for a real password hash is currently far too expensive for a phone or laptop: hundreds of gigabytes of memory for the smallest Argon2id setting.</li>
+        <li>The proof system used does not yet hide every detail of the computation, so proofs must be treated as sensitive.</li>
+        <li>If the server's database is stolen, attackers can still guess passwords offline, exactly as with today's password hashes.</li>
+        <li>It does not replace HTTPS, and it does not by itself authenticate the server to the user.</li>
+        <li>It is unaudited research software.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="measure" aria-labelledby="where">
+  <h2 id="where">Where the project stands</h2>
+  <p>The complete Argon2id and bcrypt algorithms run correctly inside the proving virtual machine, and a small test function (MiMC-7) has been proved and verified, including in the browser. Proofs of the real password hashes have not yet been produced, because general-purpose proving systems need memory proportional to the length of the computation, and password hashes are deliberately long computations. The <a href="results.html">Results</a> page has the measurements.</p>
+  <p>For password login without transmitting the password today, the established choice is <a href="https://www.rfc-editor.org/rfc/rfc9807.html">OPAQUE (RFC&nbsp;9807)</a>, a standardized protocol that is fast and well analysed. The <a href="security.html">Security analysis</a> compares the two approaches.</p>
+</section>
