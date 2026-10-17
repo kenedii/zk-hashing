@@ -6,8 +6,23 @@
   <title>zk-hashing lab</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d161d'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%2359e1bc' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
+  <meta name="theme-color" content="#020504">
+  <link rel="stylesheet" href="/tensors-theme.css">
+  <script src="/vendor/three.min.js" defer></script>
+  <script src="/tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-site tensors-lab">
+  <canvas id="cubes" aria-hidden="true"></canvas>
+  <div class="tensors-scan" aria-hidden="true"></div>
+  <header class="tensors-header">
+    <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+    <nav class="tensors-links" aria-label="Project navigation">
+      <a href="/">OVERVIEW</a>
+      <a href="/#live-demo">AUTH DEMO</a>
+      <a href="/lab/">PROOF LAB</a>
+    </nav>
+  </header>
+
   <div class="shell">
     <header class="hero">
       <div class="eyebrow"><span class="pulse"></span> LOCAL BROWSER LAB</div>

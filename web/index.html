@@ -8,11 +8,27 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317202e'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%23edf0f2' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="preload" href="fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#020504">
+  <link rel="stylesheet" href="/tensors-theme.css">
+  <script src="/vendor/three.min.js" defer></script>
+  <script src="/tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-site tensors-home">
+  <canvas id="cubes" aria-hidden="true"></canvas>
+  <div class="tensors-scan" aria-hidden="true"></div>
+  <header class="tensors-header">
+    <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+    <nav class="tensors-links" aria-label="Project navigation">
+      <a href="/">OVERVIEW</a>
+      <a href="/#live-demo">AUTH DEMO</a>
+      <a href="/lab/">PROOF LAB</a>
+    </nav>
+  </header>
+
   <header class="hero">
     <div class="measure wide">
-      <h1>Log in by proving you know the password</h1>
+      <div class="tensors-eyebrow"><span></span> CRYPTOGRAPHY / EXPERIMENT 001</div>
+      <h1>Log in by proving<br><span>you know the password.</span></h1>
       <p class="lede">zk-hashing runs real password hashes (Argon2id, bcrypt and MiMC-7) inside a STARK proof. Your browser proves the password matches what the server stored. The server never receives the password, or a hash it could replay.</p>
       <p class="cta">
         <a class="button" href="#live-demo">Try a password</a>

@@ -2,7 +2,7 @@
 
 Password login by zero-knowledge proof. The browser runs a real password hash (Argon2id, bcrypt or MiMC-7) inside a STARK-provable virtual machine and proves that the result matches what the server stored. The server never receives the password, or a hash it could replay.
 
-**Live site:** https://zkhash.ckenedi.vip. It explains the protocol, shows where the project stands, and lets you verify a real login proof in your browser.
+**Live site:** https://zkhash.tensors.vip. It explains the protocol, shows where the project stands, and lets you verify a real login proof in your browser.
 
 The home page also has an interactive **Argon2id + Schnorr password demo**. Register any throwaway password, enter it again, and the real Cloud Run server verifies a fresh Schnorr signature against the registered public key. The browser computes Argon2id locally (32 MiB, 3 passes, 1 lane), derives a signing key through domain-separated HKDF, and sends only the public key at registration and the signature at login. The page displays the exact network bodies and the server's actual stored record. A wrong password and a replay are rejected by the server.
 
@@ -192,8 +192,18 @@ The security suite asserts minimum cycle counts (more than 19M, 360M and 400k). 
 The site and interactive demo API run in a Node 22 container on Cloud Run (service `zk-hash-frontend`, region `us-central1`). From the repository root:
 
 ```sh
-gcloud builds submit --config deploy/cloudbuild.yaml --project ckenedi-portfolio .
+gcloud builds submit --config deploy/cloudbuild.yaml --project coastal-run-510916-q0 .
 ```
+
+The service belongs to the **Tensorsvip** Google Cloud project (`coastal-run-510916-q0`).
+The frontend uses the tensors.vip wireframe cube lattice, Michroma and Share Tech Mono fonts,
+and green/blue/red palette. Fonts and Three.js are served locally, preserving the same-origin
+Content Security Policy. Reduced-motion users get a static background.
+
+The custom-domain mapping for `zkhash.tensors.vip` is configured in Cloud Run. DNS must contain
+`CNAME zkhash → ghs.googlehosted.com` in the `tensors.vip` zone; Google provisions HTTPS after
+that record propagates. While the custom domain is pending, the deployment is available at
+[the Cloud Run URL](https://zk-hash-frontend-3ehepg3ebq-uc.a.run.app).
 
 The server sets a strict Content Security Policy with no third-party origins; `'wasm-unsafe-eval'` allows the local Argon2id and STARK WebAssembly modules to compile. It serves `.wasm` with the correct MIME type. The deployment uses one instance so ephemeral accounts and single-use challenges stay in one process. Restarts clear the demo's records.
 
