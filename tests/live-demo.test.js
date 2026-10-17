@@ -83,7 +83,9 @@ test('API rejects unexpected secret fields and altered hash parameters', async (
 test('static pages, Wasm MIME type, security headers and traversal protection work', async () => {
   const response = await fetch(base);
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /id="live-demo"/);
+  assert.match(await response.text(), /class="home-links"/);
+  assert.match(await (await fetch(base + '/login.html')).text(), /id="register-form"/);
+  assert.match(await (await fetch(base + '/architecture.html')).text(), /id="act-verify"/);
   assert.match(response.headers.get('content-security-policy'), /wasm-unsafe-eval/);
   assert.equal((await fetch(base + '/pkg/argon2id_zk_runtime_bg.wasm', { method: 'HEAD' })).headers.get('content-type'), 'application/wasm');
   assert.equal((await fetch(base + '/%2e%2e%2fpackage.json')).status, 404);

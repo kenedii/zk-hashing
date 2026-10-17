@@ -9,12 +9,14 @@ const { chromium } = require('playwright-core');
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('request', (request) => { if (request.url().includes('/api/demo/')) requests.push({ url: request.url(), body: request.postData() }); });
   try {
-    await page.goto(process.env.ZK_DEMO_URL || 'http://127.0.0.1:8080/', { waitUntil: 'networkidle' });
+    const baseUrl = process.env.ZK_DEMO_URL || 'http://127.0.0.1:8080/';
+    await page.goto(new URL('login.html', baseUrl).href, { waitUntil: 'networkidle' });
     const password = 'browser demo secret ☕';
     await page.fill('#register-password', password);
     await page.click('#register-button');
     await page.locator('#live-status[data-state="ready"]').waitFor();
     assert.equal(await page.inputValue('#register-password'), '');
+    await page.click('#tab-login');
     await page.fill('#login-password', password);
     await page.click('#login-button');
     await page.locator('#live-status[data-state="accepted"]').waitFor();
@@ -39,11 +41,14 @@ const { chromium } = require('playwright-core');
       if (request.url.endsWith('/verify')) assert.deepEqual(Object.keys(data), ['accountId', 'challengeId', 'proof']);
     }
     // The original full STARK verifier must still accept the published proof.
+    await page.goto(new URL('architecture.html', baseUrl).href);
+    await page.click('#nav-technical');
     await page.locator('#act-verify:not([disabled])').waitFor({ timeout: 120000 });
     await page.click('#act-verify');
     await page.locator('#results .accepted').waitFor();
     assert.deepEqual(errors, []);
-    await page.locator('#live-demo').scrollIntoViewIfNeeded();
+    await page.goto(new URL('login.html', baseUrl).href);
+    await page.locator('.live-section').scrollIntoViewIfNeeded();
     if (process.env.SMOKE_SCREENSHOT) await page.locator('.live-section').screenshot({ path: process.env.SMOKE_SCREENSHOT });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'mobile page overflows');

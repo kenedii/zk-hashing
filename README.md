@@ -2,9 +2,9 @@
 
 Password login by zero-knowledge proof. The browser runs a real password hash (Argon2id, bcrypt or MiMC-7) inside a STARK-provable virtual machine and proves that the result matches what the server stored. The server never receives the password, or a hash it could replay.
 
-**Live site:** https://zkhash.tensors.vip. It explains the protocol, shows where the project stands, and lets you verify a real login proof in your browser.
+**Live site:** https://zkhash.tensors.vip. A minimal homepage links to the hash lab, login demo, and architecture pages.
 
-The home page also has an interactive **Argon2id + Schnorr password demo**. Register any throwaway password, enter it again, and the real Cloud Run server verifies a fresh Schnorr signature against the registered public key. The browser computes Argon2id locally (32 MiB, 3 passes, 1 lane), derives a signing key through domain-separated HKDF, and sends only the public key at registration and the signature at login. The page displays the exact network bodies and the server's actual stored record. A wrong password and a replay are rejected by the server.
+The [login page](https://zkhash.tensors.vip/login.html) has an interactive **Argon2id + Schnorr password demo**. Register any throwaway password, enter it again, and the real Cloud Run server verifies a fresh Schnorr signature against the registered public key. The browser computes Argon2id locally (32 MiB, 3 passes, 1 lane), derives a signing key through domain-separated HKDF, and sends only the public key at registration and the signature at login. The page displays the exact network bodies and the server's actual stored record. A wrong password and a replay are rejected by the server.
 
 This interactive proof establishes possession of the password-derived signing key. It does **not** prove that the client performed Argon2id or used the advertised settings. The full Miden STARK example and lab remain separate and continue to verify the hash computation. Demo accounts live in bounded server memory and expire after 30 minutes or a restart; Cloud Run uses one instance for this ephemeral demo.
 

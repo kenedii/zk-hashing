@@ -1,0 +1,182 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Architecture · zk-hashing</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/tensors-theme.css"><link rel="stylesheet" href="/pages.css"><script src="/vendor/three.min.js" defer></script><script src="/tensors-background.js" defer></script></head><body class="tensors-site docs-page-layout"><canvas id="cubes" aria-hidden="true"></canvas><div class="tensors-scan" aria-hidden="true"></div><header class="tensors-header"><a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a><nav class="tensors-links" aria-label="Project navigation"><a href="/">HOME</a><a href="/lab/">HASH LAB</a><a href="/login.html">LOGIN</a><a href="/architecture.html">ARCHITECTURE</a></nav></header><nav class="docs-nav" aria-label="Documentation sections"><a href="/">ZK-AUTH / DOCS</a><div role="tablist"><button role="tab" id="nav-main" aria-controls="page-main" aria-selected="true">Overview</button><button role="tab" id="nav-technical" aria-controls="page-technical" aria-selected="false">Technical</button><button role="tab" id="nav-workflows" aria-controls="page-workflows" aria-selected="false">Auth workflows</button></div></nav><main class="docs-card"><h1 class="docs-title">Architecture</h1><div id="page-main" class="docs-page"><section aria-labelledby="status">
+      <div class="measure wide">
+        <h2 id="status">Where it stands</h2>
+        <p class="section-lede">All three hashes run end to end inside the circuit. One can be proved today on ordinary hardware.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="circuits">
+          <thead>
+            <tr>
+              <th scope="col">Algorithm</th>
+              <th scope="col">What the circuit computes</th>
+              <th scope="col" class="num">VM cycles</th>
+              <th scope="col" class="num">Trace rows</th>
+              <th scope="col">Proof</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Argon2id v1.3</th>
+              <td>RFC 9106 in full: Blake2b, H′, 1&nbsp;KiB blocks, BlaMka, hybrid addressing, passes, slices and lanes. Matches RustCrypto across 64 parameter cases.</td>
+              <td class="num">19,593,971</td>
+              <td class="num">2<sup>25</sup></td>
+              <td><span class="status over">Needs ~102 GiB</span></td>
+            </tr>
+            <tr>
+              <th scope="row">bcrypt 2b</th>
+              <td>The full EksBlowfish key schedule, 2<sup>cost</sup> key and salt expansions, and 64 encryptions of the magic string. The 1,042 table words are checked against an in-circuit commitment.</td>
+              <td class="num">367,224,034</td>
+              <td class="num">2<sup>29</sup></td>
+              <td><span class="status over">Needs ~1.6 TiB</span></td>
+            </tr>
+            <tr>
+              <th scope="row">MiMC-7</th>
+              <td>Poseidon2 absorbs the password and salt, then all 220 MiMC rounds run. Cheap to prove, but not memory-hard, so it's a stand-in for testing the protocol rather than for storing passwords.</td>
+              <td class="num">430,204</td>
+              <td class="num">2<sup>19</sup></td>
+              <td><span class="status fits">Proved in 39 s, 172&nbsp;KB</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section><section class="measure" aria-labelledby="next">
+      <h2 id="next">What's next</h2>
+      <ul class="routes">
+        <li>
+          <h3>Publish a real Argon2id proof</h3>
+          <p>Run the Argon2id prover once on a cloud machine with 256&nbsp;GiB or more and publish the proof. Anyone can then verify it on this page in milliseconds, even on a phone. bcrypt at cost 4 needs roughly 2&nbsp;TiB.</p>
+          <span class="tag planned">Planned</span>
+        </li>
+        <li>
+          <h3>Prove one round live in the browser</h3>
+          <p>Small circuits for a single Blowfish encryption or one Blake2b compression should fit under the browser's limit, showing the building blocks of bcrypt and Argon2id being proved in front of the visitor.</p>
+          <span class="tag measure-tag">Needs measuring</span>
+        </li>
+        <li>
+          <h3>A prover built for password hashes</h3>
+          <p>A purpose-built constraint system, or a prover that streams its trace to disk, could cut memory by orders of magnitude. That's the open problem between this project and a practical login.</p>
+          <span class="tag open">Open problem</span>
+        </li>
+      </ul>
+    </section><section class="measure caveats" aria-labelledby="limits">
+      <h2 id="limits">Current limits</h2>
+      <ul>
+        <li>This is research code. The Miden VM is alpha software, and none of this has had an independent audit.</li>
+        <li>Proofs use Miden's 96-bit security level.</li>
+        <li>It hasn't been confirmed that the proofs hide every detail of the password, so treat them as proofs of correct computation rather than proven zero-knowledge.</li>
+        <li>If the server's database leaks, the stored commitments can be attacked offline, like any password hash. MiMC is fast to guess against, so only Argon2id and bcrypt are meant for real use.</li>
+        <li>Systems that need password login without sending passwords today should use <a href="https://www.rfc-editor.org/rfc/rfc9807.html">OPAQUE (RFC&nbsp;9807)</a>.</li>
+      </ul>
+    </section></div><div id="page-technical" class="docs-page" hidden><section class="wall-section" aria-labelledby="wall-title">
+      <div class="measure wide">
+        <h2 id="wall-title">What's blocking Argon2id and bcrypt</h2>
+        <p class="section-lede">Prover memory. Password hashes are slow on purpose, and a general-purpose prover pays that cost again for every step it records.</p>
+      </div>
+      <figure class="wall" aria-labelledby="wall-caption">
+        <div class="wall-plot" id="wall">
+          <div class="zone zone-browser" style="--from:.10" aria-hidden="true"></div>
+          <div class="zone zone-machine" style="--from:.35" aria-hidden="true"></div>
+
+          <div class="limit" style="--pos:.10">
+            <span class="limit-label">Browser tab<br><b>4 GiB</b></span>
+          </div>
+          <div class="limit" style="--pos:.35">
+            <span class="limit-label">Desktop PC<br><b>128 GiB</b></span>
+          </div>
+
+          <div class="axis" aria-hidden="true">
+            <span style="--pos:0">1 GiB</span>
+            <span style="--pos:.2">16 GiB</span>
+            <span style="--pos:.4">256 GiB</span>
+            <span style="--pos:.5">1 TiB</span>
+            <span style="--pos:.7">16 TiB</span>
+            <span style="--pos:.9">256 TiB</span>
+            <span style="--pos:1">1 PiB</span>
+          </div>
+
+          <ul class="loads">
+            <li class="load fits" style="--pos:.0335" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>MiMC-7</b> 1.6 GiB<small>Proved natively in 39 s</small></span>
+            </li>
+            <li class="load over lift" style="--pos:.3335" data-row="1">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>Argon2id, 8 KiB</b> 102 GiB<small>Measured, then ran out of memory</small></span>
+            </li>
+            <li class="load over" style="--pos:.5335" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>bcrypt, cost 4</b> 1.6 TiB<small>Estimated from trace size</small></span>
+            </li>
+            <li class="load est end" style="--pos:.8335" data-row="1">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>bcrypt, cost 10</b> ~102 TiB<small>Extrapolated</small></span>
+            </li>
+            <li class="load est end" style="--pos:.9335" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>Argon2id, 19 MiB</b> ~408 TiB<small>OWASP settings, extrapolated</small></span>
+            </li>
+          </ul>
+        </div>
+        <figcaption id="wall-caption" class="measure wide">Prover memory on a log scale; each step on the axis is 16× the last. Measured and estimated figures come from the project's test runs. Extrapolated figures scale the measured cycle counts by work factor at about 3.2&nbsp;KB per trace row, so read them as rough orders of magnitude.</figcaption>
+      </figure>
+      <div class="measure">
+        <p>The prover writes out the whole execution trace and its low-degree extension before it commits to anything, and the row count rounds up to the next power of two. A browser tab can address at most 4&nbsp;GiB, and even MiMC stalled at that limit in Chromium. For now, proofs come from a native prover and the browser verifies them. Turning the proof-security dial down doesn't help, because the trace itself is what's too big.</p>
+      </div>
+    </section><section class="verify-section" aria-labelledby="try">
+      <div class="measure">
+        <h2 id="try">Check a login proof</h2>
+        <p>You're the server. A client registered with the password <code>hunter2</code>, received the challenge below and sent back this MiMC-7 proof. Your browser checks it with the project's real verifier, compiled to WebAssembly. Nothing is sent anywhere.</p>
+      </div>
+
+      <div class="verifier">
+        <dl class="statement">
+          <div><dt>Salt</dt><dd><code>000102030405060708090a0b0c0d0e0f</code></dd></div>
+          <div><dt>Challenge you issued</dt><dd><code id="st-challenge">305419896, 2596069104, 267242409, 2271560481</code></dd></div>
+          <div><dt>Stored commitment</dt><dd><code id="st-credential">8370215289663149514, 8090811050392849221, 9444347110279816554, 1235188709954996380</code></dd></div>
+          <div><dt>Program hash</dt><dd><code id="st-program">Loading…</code></dd></div>
+        </dl>
+
+        <div class="actions">
+          <button type="button" id="act-verify" disabled>Verify the login</button>
+          <button type="button" id="act-flip" class="secondary" disabled>Flip one bit, then verify</button>
+          <button type="button" id="act-replay" class="secondary" disabled>Replay it against a new challenge</button>
+          <form id="guess-form" class="guess">
+            <label for="guess">Check it against another password's commitment</label>
+            <div class="guess-row">
+              <input id="guess" name="guess" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="hunter3" required>
+              <button type="submit" class="secondary" id="act-guess" disabled>Check password</button>
+            </div>
+          </form>
+        </div>
+
+        <p class="runtime" id="runtime" role="status">Loading the verifier (9&nbsp;MB)…</p>
+        <ol class="results" id="results" aria-live="polite"></ol>
+      </div>
+
+      <p class="measure lab-link">To compute commitments for all three algorithms or check your own proof files, open the <a href="lab/">full lab</a>.</p>
+    </section></div><div id="page-workflows" class="docs-page" hidden><section class="measure wide" aria-labelledby="how">
+      <h2 id="how">How a login works</h2>
+      <p class="section-lede">Two messages per login, and the only secret never leaves the browser.</p>
+      <ol class="flow">
+        <li class="client">
+          <span class="side">In the browser</span>
+          <h3>Register</h3>
+          <p>Pick a random salt, hash the password, and send a commitment to the result along with the salt and hash settings. The server stores those three things.</p>
+        </li>
+        <li class="server">
+          <span class="side">On the server</span>
+          <h3>Send a challenge</h3>
+          <p>At login, send a fresh, single-use 128-bit challenge.</p>
+        </li>
+        <li class="client">
+          <span class="side">In the browser</span>
+          <h3>Prove</h3>
+          <p>Run the full hash inside the Miden VM with the password as private input, and produce a STARK proof that the result matches the stored commitment. The proof is tied to this challenge.</p>
+        </li>
+        <li class="server">
+          <span class="side">On the server</span>
+          <h3>Verify</h3>
+          <p>Check the proof against the stored commitment, the challenge it issued and the exact compiled program. Then mark the challenge used, so the same proof can't log in twice.</p>
+        </li>
+      </ol>
+    </section></div></main><script src="/pages.js" defer></script><script type="module" src="/app.js"></script></body></html>
