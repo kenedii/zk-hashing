@@ -1,0 +1,26 @@
+<section class="measure" aria-labelledby="next">
+      <h2 id="next">Future work</h2>
+      <p class="section-lede">Directions ordered from most to least immediate.</p>
+      <ul class="routes">
+        <li>
+          <h3>Segmented proving</h3>
+          <p>The inter-round state is small: 1,042 words for bcrypt and $m$ KiB for Argon2id. Partition the execution into segments $\sigma_1, \dots, \sigma_k$ and prove, for each $i$, that $\sigma_i$ maps a state with commitment $D_{i-1} = \mathsf{P2}(\mathsf{st}_{i-1} \,\Vert\, \rho)$ to one with commitment $D_i = \mathsf{P2}(\mathsf{st}_i \,\Vert\, \rho)$. The verifier checks all $k$ proofs and the chain $D_0 \to D_k$. Each segment can be proved independently and in parallel, at about 13&nbsp;GiB per $2^{22}$-row segment. The per-login blinding value $\rho$ is essential. Without it, an unblinded intermediate commitment would let an attacker test password guesses after computing only part of the hash. Recursive verification could later aggregate the $k$ proofs into one.</p>
+          <span class="tag planned">Designed</span>
+        </li>
+        <li>
+          <h3>Zero-knowledge and higher security levels</h3>
+          <p>Adopt trace randomization, giving perfect zero knowledge, once the Miden prover supports it, and raise the conjectured security level above 96 bits to leave margin against quantum search.</p>
+          <span class="tag measure-tag">Depends on Miden</span>
+        </li>
+        <li>
+          <h3>Memory64 browser proving</h3>
+          <p>MiMC-7 proving needs 4.25&nbsp;GiB, just above the wasm32 ceiling. A wasm64 build raises the JavaScript API limit to 16&nbsp;GiB (Chrome&nbsp;133 and later, Firefox&nbsp;134 and later) and should permit the first in-browser proof. Memory64 has been measured at 10–100% slower in other workloads; multi-threading through Web Workers may offset part of that.</p>
+          <span class="tag planned">Next step</span>
+        </li>
+        <li>
+          <h3>A prover specialized for password hashes</h3>
+          <p>In a general-purpose VM, each 64-bit operation costs several cycles of limb arithmetic and range checks. A dedicated AIR for the Blake2b/BlaMka or Blowfish round functions could cut the trace length $L$ by orders of magnitude. A streaming prover that keeps the trace out of core would instead reduce the constant $c$ in $M(L) \approx c \cdot 2^{\lceil \log_2 L \rceil}$. Together, these are the main open problem between the prototype and a practical login.</p>
+          <span class="tag open">Open problem</span>
+        </li>
+      </ul>
+    </section>

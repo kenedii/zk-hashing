@@ -1,0 +1,56 @@
+<section class="wall-section" aria-labelledby="wall-title">
+      <div class="measure wide">
+        <h2 id="wall-title">The memory wall</h2>
+        <p class="section-lede">Password hashes are expensive by design, and a general-purpose prover stores every step of the computation.</p>
+      </div>
+      <figure class="wall" aria-labelledby="wall-caption">
+        <div class="wall-plot" id="wall">
+          <div class="zone zone-browser" style="--from:.0833" aria-hidden="true"></div>
+          <div class="zone zone-machine" style="--from:.2917" aria-hidden="true"></div>
+
+          <div class="limit" style="--pos:.0833">
+            <span class="limit-label">wasm32 tab<br><b>4 GiB</b></span>
+          </div>
+          <div class="limit" style="--pos:.2917">
+            <span class="limit-label">Workstation RAM<br><b>128 GiB</b></span>
+          </div>
+
+          <div class="axis" aria-hidden="true">
+            <span style="--pos:0">1 GiB</span>
+            <span style="--pos:.1667">16 GiB</span>
+            <span style="--pos:.3333">256 GiB</span>
+            <span style="--pos:.5">4 TiB</span>
+            <span style="--pos:.6667">64 TiB</span>
+            <span style="--pos:.8333">1 PiB</span>
+            <span style="--pos:1">16 PiB</span>
+          </div>
+
+          <ul class="loads">
+            <li class="load over" style="--pos:.087" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>MiMC-7</b> 4.25 GiB<small>Measured peak</small></span>
+            </li>
+            <li class="load over lift" style="--pos:.337" data-row="1">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>Argon2id, 8 KiB</b> ~270 GiB<small>Estimated peak</small></span>
+            </li>
+            <li class="load est" style="--pos:.504" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>bcrypt, cost 4</b> ~4 TiB<small>Estimated</small></span>
+            </li>
+            <li class="load est end" style="--pos:.754" data-row="1">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>bcrypt, cost 10</b> ~270 TiB<small>Extrapolated</small></span>
+            </li>
+            <li class="load est end" style="--pos:.837" data-row="0">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="load-label"><b>Argon2id, 19 MiB</b> ~1.1 PiB<small>OWASP settings, extrapolated</small></span>
+            </li>
+          </ul>
+        </div>
+        <figcaption id="wall-caption" class="measure wide">Peak prover memory on a log scale; each axis step is 16× the previous. Only the MiMC-7 point is a complete measurement. The others scale its measured peak per trace row (about 8.5&nbsp;KB) by each circuit's trace length, and the extrapolated points also scale by work factor. Read them as orders of magnitude.</figcaption>
+      </figure>
+      <div class="measure">
+        <p>The prover materializes the full execution trace and its low-degree extension before committing, and the trace length is padded to the next power of two. Lowering the proof security level does not help, because the trace itself is the dominant cost. Memory therefore scales with the hash's work factor: the property that makes Argon2id and bcrypt resist guessing is exactly what makes them expensive to prove.</p>
+      </div>
+    </section>

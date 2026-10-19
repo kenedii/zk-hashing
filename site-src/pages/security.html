@@ -1,0 +1,132 @@
+<!--
+title: Security analysis · zk-hashing
+description: Security analysis of zk-hashing: threat model, what an accepted proof establishes, offline guessing costs, comparison with OPAQUE (RFC 9807), post-quantum considerations and limitations.
+section: info
+scripts:
+-->
+<header class="page-head measure">
+  <span class="eyebrow">Info · Security</span>
+  <h1>Security analysis</h1>
+  <p class="lede">The guarantees the construction provides, the assumptions they rest on, how it compares with the standardized alternative, and the limitations of the current implementation.</p>
+</header>
+
+<article class="measure wide prose">
+  <section aria-labelledby="model">
+    <h2 id="model">Threat model</h2>
+    <p>We consider four adversaries, in increasing strength:</p>
+    <ol>
+      <li><strong>Network adversary.</strong> Observes and modifies traffic between client and server, but cannot read TLS-protected content.</li>
+      <li><strong>Transcript adversary.</strong> Obtains complete login transcripts $(n, \pi)$, for example from a TLS-terminating intermediary, application logs or a compromised server.</li>
+      <li><strong>Database adversary.</strong> Obtains the stored records $(C, s, \theta)$.</li>
+      <li><strong>Quantum adversary.</strong> Any of the above, additionally able to run Shor's and Grover's algorithms at cryptographic scale.</li>
+    </ol>
+    <p>The design goal is that no adversary short of the database adversary can authenticate as a user or recover the password at a cost below exhaustive guessing against $H_\theta$, and that the database adversary gains nothing beyond what a conventional salted password-hash table already provides.</p>
+  </section>
+
+  <section aria-labelledby="established">
+    <h2 id="established">What an accepted proof establishes</h2>
+    <p>Fix the pinned program hash $h_P$ and the server's records $(C, s, \theta)$. If $\mathsf{Verify}(h_P, (C, s, \theta, n), \pi) = 1$ for a fresh challenge $n$, knowledge soundness implies that, except with probability at most the knowledge error $\kappa \approx 2^{-96}$, the prover knew some $w$ satisfying</p>
+    $$\mathsf{P2}\big(\tau_{\mathrm{alg}} \,\Vert\, H_\theta(w, s) \,\Vert\, s \,\Vert\, \theta\big) = C.$$
+    <p>By the binding property of the commitment, any such $w$ is the registered password or a second preimage of $H_\theta$. The circuit range-checks every password and salt byte, constrains the length to $1 \le |w| \le 64$, and uses domain tags with explicit lengths, which excludes cross-algorithm and concatenation ambiguities. Because $n$ is absorbed into the Fiat–Shamir transcript and marked as spent after use, a proof authenticates exactly one login.</p>
+  </section>
+
+  <section aria-labelledby="guessing">
+    <h2 id="guessing">Offline guessing</h2>
+    <p>Let $\mathcal{W}$ be the attacker's candidate list, ordered by estimated likelihood, and let $\mathrm{cost}(H_\theta)$ denote the cost of one hash evaluation. Any party holding $C$ can test candidates by recomputing the commitment, and succeeds after expected work</p>
+    $$\mathbb{E}[\mathrm{work}] \approx \mathrm{cost}(H_\theta) \cdot \sum_{i \ge 1} i \cdot \Pr[w = w_i].$$
+    <p>This is the same bound as for a conventional salted hash. The salt prevents precomputation across users, and $\theta$ sets the per-guess cost. Two properties of the current implementation widen the set of parties who hold $C$:</p>
+    <ul>
+      <li>$C$ is a public input of every proof, so the transcript adversary learns it as well as the database adversary.</li>
+      <li>The proofs are not zero-knowledge. The committed trace polynomials are deterministic in $w$, so a proof is itself a guessing oracle. Testing a candidate this way costs at least one in-VM execution of $H_\theta$, which is more expensive than testing against $C$ directly, so this adds no new capability beyond what $C$ already gives.</li>
+    </ul>
+    <p>Proofs and commitments should therefore be handled as credential material: kept out of logs, and transported only over TLS.</p>
+  </section>
+
+  <section aria-labelledby="conventional">
+    <h2 id="conventional">Comparison with conventional password hashing</h2>
+    <p>In the conventional scheme the client sends the password $w$ over TLS, and the server computes $H_\theta(w, s)$ and compares it with the stored value. The server's record is the same $(s, \theta, h)$ triple, with $h = H_\theta(w, s)$, as in zk-hashing, so protection against a stolen database is identical: an attacker must pay $\mathrm{cost}(H_\theta)$ per guess in both schemes. The schemes differ in what happens at login.</p>
+    <ul class="plain-list">
+      <li><strong>Exposure at login.</strong> Conventionally, every party that terminates TLS or can read application memory, logs or crash dumps obtains $w$ itself, with no guessing needed. A login proof reveals no password to such a party; the best it can do is the offline test described above.</li>
+      <li><strong>Strength of the stored value.</strong> A conventional server may use a heavier hash than any client could run, because the server bears the cost. In zk-hashing the parameters $\theta$ are bounded by what the client can <em>prove</em>, which today is far below recommended settings. <em>This is the main security regression of the current prototype</em>: a stolen database is cheaper to attack than a conventionally hashed one.</li>
+      <li><strong>Server work.</strong> Conventional verification costs one memory-hard hash per login, a deliberate denial-of-service surface. STARK verification takes milliseconds and does not depend on $\theta$.</li>
+      <li><strong>Quantum exposure.</strong> A recorded TLS session protected by a classical key exchange exposes $w$ to a future quantum adversary (harvest now, decrypt later). A proof contains no password, so recorded proofs expose only what an offline guess against $C$ would.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="comparison">
+    <h2 id="comparison">Comparison with OPAQUE and the alternatives</h2>
+    <p>OPAQUE (RFC&nbsp;9807) is an asymmetric password-authenticated key exchange (aPAKE). The client blinds its password and obtains, through an oblivious pseudorandom function (OPRF) evaluated jointly with the server, a value $\mathrm{rwd} = F_k(w)$. Here $k$ is a per-user key held by the server, and the server learns neither $w$ nor $\mathrm{rwd}$. In the prime-order-group instantiation, the client sends $B = \mathcal{H}_G(w)^r$ for a random $r$, the server returns $Z = B^k$, and the client unblinds $Z^{1/r} = \mathcal{H}_G(w)^k$. The value $\mathrm{rwd}$ then decrypts an envelope holding the client's long-term key, which is used in an authenticated key exchange.</p>
+    <div class="table-wrap">
+      <table class="circuits compare">
+        <thead>
+          <tr>
+            <th scope="col">Property</th>
+            <th scope="col">Conventional (TLS + server-side hash)</th>
+            <th scope="col">zk-hashing (STARK)</th>
+            <th scope="col">Password-flow baseline (Argon2id + Schnorr)</th>
+            <th scope="col">OPAQUE (RFC&nbsp;9807)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Password or replayable value transmitted</th><td>Yes; the password reaches the server</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><th scope="row">Server state per user</th><td>$(s, \theta, h)$</td><td>$(C, s, \theta)$</td><td>Public key, $s$, $\theta$</td><td>OPRF key $k$, client public key, envelope</td></tr>
+          <tr><th scope="row">Offline guessing after database compromise</th><td>Yes; cost $\mathrm{cost}(H_\theta)$ per guess</td><td>Yes; cost $\mathrm{cost}(H_\theta)$ per guess</td><td>Yes; cost $\mathrm{cost}(H_\theta)$ per guess</td><td>Yes; one OPRF evaluation and one hash per guess</td></tr>
+          <tr><th scope="row">Password exposed to a TLS-terminating party or server logs</th><td>Yes, directly</td><td>No; offline guessing against $C$ only</td><td>No; offline guessing against the public key</td><td>No, under the assumptions of the security proof</td></tr>
+          <tr><th scope="row">Hash strength usable</th><td>Any; server-side cost</td><td>Limited by what the client can prove</td><td>Limited by client compute (about one second here)</td><td>Any; client-side cost</td></tr>
+          <tr><th scope="row">Hardness assumptions</th><td>Preimage resistance and memory hardness of $H_\theta$</td><td>Collision-resistant hashing; conjectured proximity gaps for Reed–Solomon codes</td><td>Discrete logarithm on secp256k1</td><td>One-more Diffie–Hellman (random-oracle model)</td></tr>
+          <tr><th scope="row">Attack by a quantum adversary</th><td>Grover speedup on guessing; recorded TLS sessions expose the password</td><td>No known attack on soundness</td><td>Signing key recoverable from the public key</td><td>OPRF key recoverable from one transcript, which re-enables offline guessing</td></tr>
+          <tr><th scope="row">Session key and server authentication</th><td>No; delegated to TLS</td><td>No; delegated to TLS</td><td>No; delegated to TLS</td><td>Yes</td></tr>
+          <tr><th scope="row">Client cost per login</th><td>Negligible</td><td>Impractical for Argon2id and bcrypt at present</td><td>About one second</td><td>Milliseconds plus the chosen hash</td></tr>
+          <tr><th scope="row">Maturity</th><td>Ubiquitous; OWASP guidance</td><td>Research prototype</td><td>Demonstration</td><td>IETF standard with a security proof in the UC framework</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="prosandcons">
+    <h2 id="prosandcons">Advantages and disadvantages</h2>
+    <div class="pros-cons">
+      <div>
+        <h3>Advantages</h3>
+        <ul class="plain-list">
+          <li>The password never reaches the server, its logs or any TLS-terminating intermediary.</li>
+          <li>The verifier checks that the registered hash function with the registered parameters was executed, because the proof is bound to a single program hash.</li>
+          <li>Verification takes milliseconds and does not depend on the hash cost $\theta$.</li>
+          <li>Soundness rests on hash functions only, so Shor's algorithm gives no attack, in contrast to OPAQUE and to discrete-logarithm signatures.</li>
+          <li>Verification is public: it needs no secret key and can be repeated or audited by any party.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Disadvantages</h3>
+        <ul class="plain-list">
+          <li>Proving costs hundreds of gigabytes of memory for the smallest Argon2id setting, so the scheme is not deployable today.</li>
+          <li>The feasible hash parameters are far weaker than those recommended for password storage.</li>
+          <li>$C$ is public in every proof and the proofs are not zero-knowledge, so transcripts must be handled as credential material.</li>
+          <li>No session key or server authentication; TLS remains necessary.</li>
+          <li>Unaudited research software built on an experimental VM and compiler.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="quantum">
+    <h2 id="quantum">Post-quantum considerations</h2>
+    <p><strong>OPAQUE.</strong> Shor's algorithm computes discrete logarithms in polynomial time. An adversary who observes one OPRF exchange $(B, Z = B^k)$ can therefore recover $k$, then evaluate $F_k(w')$ for candidate passwords and test each against the envelope. This removes the protection against offline guessing that distinguishes an aPAKE. The session keys of recorded exchanges are likewise exposed to harvest-now-decrypt-later attacks, as the IETF hybrid PQ-PAKE draft notes. Post-quantum aPAKE designs, including the hybrid CPaceOQUAKE+ proposal and KEM-based compilers, are under development but not yet standardized.</p>
+    <p><strong>Conventional hashing.</strong> Server-side hashing is not broken by Shor's algorithm, and Grover's algorithm gives only a quadratic speedup in guessing, which a larger work factor absorbs. The exposure lies in transport: a password sent under a classical key exchange can be recorded and decrypted later.</p>
+    <p><strong>STARK-based authentication.</strong> The argument uses only a hash function, through Merkle commitments and Fiat–Shamir, so Shor's algorithm does not apply. Generic quantum search still matters. Grover's algorithm finds a preimage in a space of size $2^{\lambda}$ with $O(2^{\lambda/2})$ queries. For the BCS construction underlying STARKs, Chiesa, Manohar and Spooner prove security in the quantum random-oracle model, with an adversary's success probability growing roughly quadratically in its number of oracle queries rather than linearly. A conjectured classical level of 96 bits therefore corresponds to a substantially smaller post-quantum margin, and a post-quantum deployment should use a higher security level.</p>
+    <p><strong>Transport.</strong> The construction authenticates the client but establishes no key, so confidentiality and server authentication rest on TLS. A post-quantum deployment also requires post-quantum key agreement in TLS, such as the hybrid X25519MLKEM768 group now offered by major browsers. The password-flow baseline uses secp256k1 Schnorr signatures and offers no post-quantum security.</p>
+  </section>
+
+  <section aria-labelledby="limitations">
+    <h2 id="limitations">Limitations</h2>
+    <ul class="caveats-list">
+      <li><strong>Proving cost.</strong> At realistic parameters, Argon2id and bcrypt proofs need memory several orders of magnitude beyond client hardware when a general-purpose prover is used (<a href="how-it-works.html#cost">cost model</a>). The demonstrated settings, $m = 8$&nbsp;KiB for Argon2id and cost&nbsp;4 for bcrypt, are far below recommended password-storage parameters.</li>
+      <li><strong>No zero knowledge.</strong> The prover does not randomize the trace. Miden's roadmap lists perfect zero knowledge as future work.</li>
+      <li><strong>Public commitment.</strong> As shown above, $C$ is visible to any party that sees a proof.</li>
+      <li><strong>No key agreement.</strong> The protocol provides one-way authentication and depends on TLS for everything else.</li>
+      <li><strong>Side channels.</strong> Argon2id uses data-dependent memory addressing, and VM execution is not constant-time. Timing and resource side channels have not been analysed.</li>
+      <li><strong>Scope.</strong> Passwords are 1–64 bytes, salts exactly 16 bytes, and Argon2id lanes 1–4. The Argon2id secret and associated-data inputs are not supported.</li>
+      <li><strong>Assurance.</strong> Miden VM and the Rust-to-Miden compiler are experimental, and this code has not been independently audited. For deployments today, OPAQUE is the appropriate choice.</li>
+    </ul>
+  </section>
+</article>

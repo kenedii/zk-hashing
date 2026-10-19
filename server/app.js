@@ -11,7 +11,7 @@ const ACCOUNT_TTL = 30 * 60_000;
 const CHALLENGE_TTL = 2 * 60_000;
 const MAX_ACCOUNTS = 1000;
 const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.csv': 'text/csv; charset=utf-8', '.ttf': 'font/ttf' };
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 function exactFields(value, fields) {
