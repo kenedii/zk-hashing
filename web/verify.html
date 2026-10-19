@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify a login proof · zk-hashing</title>
+  <meta name="description" content="Run the zk-hashing STARK verifier in the browser against a published MiMC-7 login proof, and observe how tampering and replay are rejected.">
+  <meta name="theme-color" content="#020504">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23020504'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%2300ff66' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="preload" href="/fonts/michroma.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/tensors-theme.css">
+  <link rel="stylesheet" href="/tensors-nav.css">
+  <link rel="stylesheet" href="/site-theme.css">
+  <script src="/vendor/three.min.js" defer></script>
+  <script src="/tensors-background.js" defer></script>
+</head>
+<body class="tensors-site tensors-home">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <canvas id="cubes" aria-hidden="true"></canvas>
+  <div class="tensors-scan" aria-hidden="true"></div>
+  <header class="tensors-header">
+    <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+    <nav class="tensors-links site-nav" aria-label="Project navigation">
+      <a href="/" data-page="index.html">HOME</a>
+      <details class="menu">
+        <summary data-section="info">INFO</summary>
+        <ul class="menu-list">
+          <li><a href="/what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
+          <li><a href="/how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
+          <li><a href="/results.html" data-page="results.html"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
+          <li><a href="/security.html" data-page="security.html"><b>Security analysis</b><span>Comparison with OPAQUE and conventional hashing, quantum, limitations</span></a></li>
+          <li><a href="/research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
+        </ul>
+      </details>
+      <details class="menu">
+        <summary data-section="demos" aria-current="true">DEMOS</summary>
+        <ul class="menu-list">
+          <li><a href="/verify.html" data-page="verify.html" aria-current="page"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
+          <li><a href="/experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
+          <li><a href="/password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
+          <li><a href="/lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
+        </ul>
+      </details>
+      <a href="https://github.com/kenedii/zk-hashing">SOURCE ↗</a>
+    </nav>
+  </header>
+
+  <main id="main">
+<header class="page-head measure wide">
+  <span class="eyebrow">Demo · Verifier</span>
+  <h1>Verify a login proof</h1>
+  <p class="lede">The project's verifier, compiled to WebAssembly, runs in this page. Nothing is sent over the network.</p>
+</header>
+
+<section class="verify-section" aria-labelledby="try">
+      <div class="measure">
+        
+        <p>In this scenario you act as the server. A client registered with the password <code>hunter2</code>, received the challenge below and returned a MiMC-7 proof. The statement values are taken from the server's records.</p>
+      </div>
+
+      <div class="verifier">
+        <dl class="statement">
+          <div><dt>Salt</dt><dd><code>000102030405060708090a0b0c0d0e0f</code></dd></div>
+          <div><dt>Issued challenge</dt><dd><code id="st-challenge">305419896, 2596069104, 267242409, 2271560481</code></dd></div>
+          <div><dt>Stored commitment</dt><dd><code id="st-credential">8370215289663149514, 8090811050392849221, 9444347110279816554, 1235188709954996380</code></dd></div>
+          <div><dt>Program hash</dt><dd><code id="st-program">Loading…</code></dd></div>
+        </dl>
+
+        <div class="actions">
+          <button type="button" id="act-verify" disabled>Verify the login</button>
+          <button type="button" id="act-flip" class="secondary" disabled>Flip one bit, then verify</button>
+          <button type="button" id="act-replay" class="secondary" disabled>Replay against a new challenge</button>
+          <form id="guess-form" class="guess">
+            <label for="guess">Check against another password's commitment</label>
+            <div class="guess-row">
+              <input id="guess" name="guess" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="hunter3" required>
+              <button type="submit" class="secondary" id="act-guess" disabled>Check password</button>
+            </div>
+          </form>
+        </div>
+
+        <p class="runtime" id="runtime" role="status">Loading the verifier (9&nbsp;MB)…</p>
+        <ol class="results" id="results" aria-live="polite"></ol>
+      </div>
+
+      <p class="measure lab-link">To compute commitments for all three algorithms or verify your own proof files, open the <a href="lab/">full lab</a>.</p>
+    </section>
+
+
+
+<section class="measure" aria-labelledby="checks">
+  <h2 id="checks">What each action tests</h2>
+  <dl class="definitions">
+    <dt>Verify the login</dt><dd>Checks <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">𝖵</mi><mi mathvariant="normal">𝖾</mi><mi mathvariant="normal">𝗋</mi><mi mathvariant="normal">𝗂</mi><mi mathvariant="normal">𝖿</mi><mi mathvariant="normal">𝗒</mi></mrow><mo stretchy="false">(</mo><msub><mi>h</mi><mi>P</mi></msub><mo separator="true">,</mo><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo separator="true">,</mo><mi>n</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mi>π</mi><mo stretchy="false">)</mo><mo>=</mo><mn>1</mn></mrow></semantics></math></span> with every public value taken from the server's records.</dd>
+    <dt>Flip one bit</dt><dd>Alters one random bit of the proof body. Merkle authentication paths and FRI consistency checks reject the result.</dd>
+    <dt>Replay against a new challenge</dt><dd>Presents the same proof for a fresh <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>n</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo mathvariant="normal">≠</mo><mi>n</mi></mrow></semantics></math></span>. Because <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow></semantics></math></span> is absorbed into the Fiat–Shamir transcript, every derived challenge changes and verification fails.</dd>
+    <dt>Check against another password</dt><dd>Computes the commitment <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>C</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup></mrow></semantics></math></span> of the entered password and verifies the proof against it. The proof verifies only for the registered <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span>.</dd>
+  </dl>
+</section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="measure wide">
+      <p>EXPERIMENTAL / RESEARCH PROTOTYPE. Unaudited; must not protect real accounts.</p>
+      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="/research.html">References</a> · <a href="https://tensors.vip">tensors.vip</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="/nav.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

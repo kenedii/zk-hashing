@@ -1,0 +1,24 @@
+<!--
+title: Verify a login proof · zk-hashing
+description: Run the zk-hashing STARK verifier in the browser against a published MiMC-7 login proof, and observe how tampering and replay are rejected.
+section: demos
+scripts: app.js
+-->
+<header class="page-head measure wide">
+  <span class="eyebrow">Demo · Verifier</span>
+  <h1>Verify a login proof</h1>
+  <p class="lede">The project's verifier, compiled to WebAssembly, runs in this page. Nothing is sent over the network.</p>
+</header>
+
+{{include:verify}}
+
+
+<section class="measure" aria-labelledby="checks">
+  <h2 id="checks">What each action tests</h2>
+  <dl class="definitions">
+    <dt>Verify the login</dt><dd>Checks $\mathsf{Verify}(h_P, (C, s, \theta, n), \pi) = 1$ with every public value taken from the server's records.</dd>
+    <dt>Flip one bit</dt><dd>Alters one random bit of the proof body. Merkle authentication paths and FRI consistency checks reject the result.</dd>
+    <dt>Replay against a new challenge</dt><dd>Presents the same proof for a fresh $n' \neq n$. Because $n$ is absorbed into the Fiat–Shamir transcript, every derived challenge changes and verification fails.</dd>
+    <dt>Check against another password</dt><dd>Computes the commitment $C'$ of the entered password and verifies the proof against it. The proof verifies only for the registered $C$.</dd>
+  </dl>
+</section>
