@@ -5,38 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Security analysis · zk-hashing</title>
   <meta name="description" content="Security analysis of zk-hashing: threat model, what an accepted proof establishes, offline guessing costs, comparison with OPAQUE (RFC 9807), post-quantum considerations and limitations.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317202e'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%23edf0f2' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="preload" href="fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#020504">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23020504'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%2300ff66' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="preload" href="/fonts/michroma.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/tensors-theme.css">
+  <link rel="stylesheet" href="/tensors-nav.css">
+  <link rel="stylesheet" href="/site-theme.css">
+  <script src="/vendor/three.min.js" defer></script>
+  <script src="/tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-site tensors-home">
   <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header">
-    <div class="site-bar measure wide">
-      <a class="brand" href="./" data-page="index.html">zk-hashing</a>
-      <nav class="site-nav" aria-label="Site">
-        <details class="menu">
-          <summary data-section="info" aria-current="true">Info</summary>
-          <ul class="menu-list">
-            <li><a href="what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
-            <li><a href="how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
-            <li><a href="results.html" data-page="results.html"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
-            <li><a href="security.html" data-page="security.html" aria-current="page"><b>Security analysis</b><span>Guarantees, comparison with OPAQUE, limitations</span></a></li>
-            <li><a href="research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
-          </ul>
-        </details>
-        <details class="menu">
-          <summary data-section="demos">Demos</summary>
-          <ul class="menu-list">
-            <li><a href="verify.html" data-page="verify.html"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
-            <li><a href="experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
-            <li><a href="password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
-            <li><a href="lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
-          </ul>
-        </details>
-        <a class="nav-link" href="https://github.com/kenedii/zk-hashing">Source</a>
-      </nav>
-    </div>
+  <canvas id="cubes" aria-hidden="true"></canvas>
+  <div class="tensors-scan" aria-hidden="true"></div>
+  <header class="tensors-header">
+    <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+    <nav class="tensors-links site-nav" aria-label="Project navigation">
+      <a href="/" data-page="index.html">HOME</a>
+      <details class="menu">
+        <summary data-section="info" aria-current="true">INFO</summary>
+        <ul class="menu-list">
+          <li><a href="/what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
+          <li><a href="/how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
+          <li><a href="/results.html" data-page="results.html"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
+          <li><a href="/security.html" data-page="security.html" aria-current="page"><b>Security analysis</b><span>Comparison with OPAQUE and conventional hashing, quantum, limitations</span></a></li>
+          <li><a href="/research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
+        </ul>
+      </details>
+      <details class="menu">
+        <summary data-section="demos">DEMOS</summary>
+        <ul class="menu-list">
+          <li><a href="/verify.html" data-page="verify.html"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
+          <li><a href="/experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
+          <li><a href="/password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
+          <li><a href="/lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
+        </ul>
+      </details>
+      <a href="https://github.com/kenedii/zk-hashing">SOURCE ↗</a>
+    </nav>
   </header>
 
   <main id="main">
@@ -46,7 +54,7 @@
   <p class="lede">The guarantees the construction provides, the assumptions they rest on, how it compares with the standardized alternative, and the limitations of the current implementation.</p>
 </header>
 
-<article class="measure prose">
+<article class="measure wide prose">
   <section aria-labelledby="model">
     <h2 id="model">Threat model</h2>
     <p>We consider four adversaries, in increasing strength:</p>
@@ -78,37 +86,77 @@
     <p>Proofs and commitments should therefore be handled as credential material: kept out of logs, and transported only over TLS.</p>
   </section>
 
+  <section aria-labelledby="conventional">
+    <h2 id="conventional">Comparison with conventional password hashing</h2>
+    <p>In the conventional scheme the client sends the password <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> over TLS, and the server computes <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">(</mo><mi>w</mi><mo separator="true">,</mo><mi>s</mi><mo stretchy="false">)</mo></mrow></semantics></math></span> and compares it with the stored value. The server's record is the same <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo separator="true">,</mo><mi>h</mi><mo stretchy="false">)</mo></mrow></semantics></math></span> triple, with <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi><mo>=</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">(</mo><mi>w</mi><mo separator="true">,</mo><mi>s</mi><mo stretchy="false">)</mo></mrow></semantics></math></span>, as in zk-hashing, so protection against a stolen database is identical: an attacker must pay <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess in both schemes. The schemes differ in what happens at login.</p>
+    <ul class="plain-list">
+      <li><strong>Exposure at login.</strong> Conventionally, every party that terminates TLS or can read application memory, logs or crash dumps obtains <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> itself, with no guessing needed. A login proof reveals no password to such a party; the best it can do is the offline test described above.</li>
+      <li><strong>Strength of the stored value.</strong> A conventional server may use a heavier hash than any client could run, because the server bears the cost. In zk-hashing the parameters <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span> are bounded by what the client can <em>prove</em>, which today is far below recommended settings. <em>This is the main security regression of the current prototype</em>: a stolen database is cheaper to attack than a conventionally hashed one.</li>
+      <li><strong>Server work.</strong> Conventional verification costs one memory-hard hash per login, a deliberate denial-of-service surface. STARK verification takes milliseconds and does not depend on <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span>.</li>
+      <li><strong>Quantum exposure.</strong> A recorded TLS session protected by a classical key exchange exposes <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> to a future quantum adversary (harvest now, decrypt later). A proof contains no password, so recorded proofs expose only what an offline guess against <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> would.</li>
+    </ul>
+  </section>
+
   <section aria-labelledby="comparison">
-    <h2 id="comparison">Comparison with OPAQUE</h2>
+    <h2 id="comparison">Comparison with OPAQUE and the alternatives</h2>
     <p>OPAQUE (RFC&nbsp;9807) is an asymmetric password-authenticated key exchange (aPAKE). The client blinds its password and obtains, through an oblivious pseudorandom function (OPRF) evaluated jointly with the server, a value <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">d</mi></mrow><mo>=</mo><msub><mi>F</mi><mi>k</mi></msub><mo stretchy="false">(</mo><mi>w</mi><mo stretchy="false">)</mo></mrow></semantics></math></span>. Here <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span> is a per-user key held by the server, and the server learns neither <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi></mrow></semantics></math></span> nor <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">d</mi></mrow></semantics></math></span>. In the prime-order-group instantiation, the client sends <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><msub><mi mathvariant="normal">ℋ</mi><mi>G</mi></msub><mo stretchy="false">(</mo><mi>w</mi><msup><mo stretchy="false">)</mo><mi>r</mi></msup></mrow></semantics></math></span> for a random <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi></mrow></semantics></math></span>, the server returns <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><msup><mi>B</mi><mi>k</mi></msup></mrow></semantics></math></span>, and the client unblinds <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>Z</mi><mrow><mn>1</mn><mi mathvariant="normal">/</mi><mi>r</mi></mrow></msup><mo>=</mo><msub><mi mathvariant="normal">ℋ</mi><mi>G</mi></msub><mo stretchy="false">(</mo><mi>w</mi><msup><mo stretchy="false">)</mo><mi>k</mi></msup></mrow></semantics></math></span>. The value <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">d</mi></mrow></semantics></math></span> then decrypts an envelope holding the client's long-term key, which is used in an authenticated key exchange.</p>
     <div class="table-wrap">
       <table class="circuits compare">
         <thead>
           <tr>
             <th scope="col">Property</th>
+            <th scope="col">Conventional (TLS + server-side hash)</th>
             <th scope="col">zk-hashing (STARK)</th>
             <th scope="col">Password-flow baseline (Argon2id + Schnorr)</th>
             <th scope="col">OPAQUE (RFC&nbsp;9807)</th>
           </tr>
         </thead>
         <tbody>
-          <tr><th scope="row">Password or replayable value transmitted</th><td>No</td><td>No</td><td>No</td></tr>
-          <tr><th scope="row">Server state per user</th><td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo stretchy="false">)</mo></mrow></semantics></math></span></td><td>Public key, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi></mrow></semantics></math></span>, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span></td><td>OPRF key <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span>, client public key, envelope</td></tr>
-          <tr><th scope="row">Offline guessing after database compromise</th><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; one OPRF evaluation and one hash per guess</td></tr>
-          <tr><th scope="row">Offline guessing from a login transcript</th><td>Yes; <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> is a public input</td><td>Yes; a signature can be checked against candidate keys</td><td>No, under the assumptions of the security proof</td></tr>
-          <tr><th scope="row">Hardness assumptions</th><td>Collision-resistant hashing; conjectured proximity gaps for Reed–Solomon codes</td><td>Discrete logarithm on secp256k1</td><td>One-more Diffie–Hellman (random-oracle model)</td></tr>
-          <tr><th scope="row">Attack by a quantum adversary</th><td>No known attack on soundness</td><td>Signing key recoverable from the public key</td><td>OPRF key recoverable from one transcript, which re-enables offline guessing</td></tr>
-          <tr><th scope="row">Session key and server authentication</th><td>No; delegated to TLS</td><td>No; delegated to TLS</td><td>Yes</td></tr>
-          <tr><th scope="row">Client cost per login</th><td>Impractical for Argon2id and bcrypt at present</td><td>About one second</td><td>Milliseconds plus the chosen hash</td></tr>
-          <tr><th scope="row">Maturity</th><td>Research prototype</td><td>Demonstration</td><td>IETF standard with a security proof in the UC framework</td></tr>
+          <tr><th scope="row">Password or replayable value transmitted</th><td>Yes; the password reaches the server</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><th scope="row">Server state per user</th><td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo separator="true">,</mo><mi>h</mi><mo stretchy="false">)</mo></mrow></semantics></math></span></td><td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>C</mi><mo separator="true">,</mo><mi>s</mi><mo separator="true">,</mo><mi>θ</mi><mo stretchy="false">)</mo></mrow></semantics></math></span></td><td>Public key, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi></mrow></semantics></math></span>, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span></td><td>OPRF key <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span>, client public key, envelope</td></tr>
+          <tr><th scope="row">Offline guessing after database compromise</th><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false">(</mo><msub><mi>H</mi><mi>θ</mi></msub><mo stretchy="false">)</mo></mrow></semantics></math></span> per guess</td><td>Yes; one OPRF evaluation and one hash per guess</td></tr>
+          <tr><th scope="row">Password exposed to a TLS-terminating party or server logs</th><td>Yes, directly</td><td>No; offline guessing against <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> only</td><td>No; offline guessing against the public key</td><td>No, under the assumptions of the security proof</td></tr>
+          <tr><th scope="row">Hash strength usable</th><td>Any; server-side cost</td><td>Limited by what the client can prove</td><td>Limited by client compute (about one second here)</td><td>Any; client-side cost</td></tr>
+          <tr><th scope="row">Hardness assumptions</th><td>Preimage resistance and memory hardness of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>θ</mi></msub></mrow></semantics></math></span></td><td>Collision-resistant hashing; conjectured proximity gaps for Reed–Solomon codes</td><td>Discrete logarithm on secp256k1</td><td>One-more Diffie–Hellman (random-oracle model)</td></tr>
+          <tr><th scope="row">Attack by a quantum adversary</th><td>Grover speedup on guessing; recorded TLS sessions expose the password</td><td>No known attack on soundness</td><td>Signing key recoverable from the public key</td><td>OPRF key recoverable from one transcript, which re-enables offline guessing</td></tr>
+          <tr><th scope="row">Session key and server authentication</th><td>No; delegated to TLS</td><td>No; delegated to TLS</td><td>No; delegated to TLS</td><td>Yes</td></tr>
+          <tr><th scope="row">Client cost per login</th><td>Negligible</td><td>Impractical for Argon2id and bcrypt at present</td><td>About one second</td><td>Milliseconds plus the chosen hash</td></tr>
+          <tr><th scope="row">Maturity</th><td>Ubiquitous; OWASP guidance</td><td>Research prototype</td><td>Demonstration</td><td>IETF standard with a security proof in the UC framework</td></tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="prosandcons">
+    <h2 id="prosandcons">Advantages and disadvantages</h2>
+    <div class="pros-cons">
+      <div>
+        <h3>Advantages</h3>
+        <ul class="plain-list">
+          <li>The password never reaches the server, its logs or any TLS-terminating intermediary.</li>
+          <li>The verifier checks that the registered hash function with the registered parameters was executed, because the proof is bound to a single program hash.</li>
+          <li>Verification takes milliseconds and does not depend on the hash cost <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow></semantics></math></span>.</li>
+          <li>Soundness rests on hash functions only, so Shor's algorithm gives no attack, in contrast to OPAQUE and to discrete-logarithm signatures.</li>
+          <li>Verification is public: it needs no secret key and can be repeated or audited by any party.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Disadvantages</h3>
+        <ul class="plain-list">
+          <li>Proving costs hundreds of gigabytes of memory for the smallest Argon2id setting, so the scheme is not deployable today.</li>
+          <li>The feasible hash parameters are far weaker than those recommended for password storage.</li>
+          <li><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow></semantics></math></span> is public in every proof and the proofs are not zero-knowledge, so transcripts must be handled as credential material.</li>
+          <li>No session key or server authentication; TLS remains necessary.</li>
+          <li>Unaudited research software built on an experimental VM and compiler.</li>
+        </ul>
+      </div>
     </div>
   </section>
 
   <section aria-labelledby="quantum">
     <h2 id="quantum">Post-quantum considerations</h2>
     <p><strong>OPAQUE.</strong> Shor's algorithm computes discrete logarithms in polynomial time. An adversary who observes one OPRF exchange <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>B</mi><mo separator="true">,</mo><mi>Z</mi><mo>=</mo><msup><mi>B</mi><mi>k</mi></msup><mo stretchy="false">)</mo></mrow></semantics></math></span> can therefore recover <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow></semantics></math></span>, then evaluate <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>k</mi></msub><mo stretchy="false">(</mo><msup><mi>w</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo stretchy="false">)</mo></mrow></semantics></math></span> for candidate passwords and test each against the envelope. This removes the protection against offline guessing that distinguishes an aPAKE. The session keys of recorded exchanges are likewise exposed to harvest-now-decrypt-later attacks, as the IETF hybrid PQ-PAKE draft notes. Post-quantum aPAKE designs, including the hybrid CPaceOQUAKE+ proposal and KEM-based compilers, are under development but not yet standardized.</p>
+    <p><strong>Conventional hashing.</strong> Server-side hashing is not broken by Shor's algorithm, and Grover's algorithm gives only a quadratic speedup in guessing, which a larger work factor absorbs. The exposure lies in transport: a password sent under a classical key exchange can be recorded and decrypted later.</p>
     <p><strong>STARK-based authentication.</strong> The argument uses only a hash function, through Merkle commitments and Fiat–Shamir, so Shor's algorithm does not apply. Generic quantum search still matters. Grover's algorithm finds a preimage in a space of size <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mi>λ</mi></msup></mrow></semantics></math></span> with <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><msup><mn>2</mn><mrow><mi>λ</mi><mi mathvariant="normal">/</mi><mn>2</mn></mrow></msup><mo stretchy="false">)</mo></mrow></semantics></math></span> queries. For the BCS construction underlying STARKs, Chiesa, Manohar and Spooner prove security in the quantum random-oracle model, with an adversary's success probability growing roughly quadratically in its number of oracle queries rather than linearly. A conjectured classical level of 96 bits therefore corresponds to a substantially smaller post-quantum margin, and a post-quantum deployment should use a higher security level.</p>
     <p><strong>Transport.</strong> The construction authenticates the client but establishes no key, so confidentiality and server authentication rest on TLS. A post-quantum deployment also requires post-quantum key agreement in TLS, such as the hybrid X25519MLKEM768 group now offered by major browsers. The password-flow baseline uses secp256k1 Schnorr signatures and offers no post-quantum security.</p>
   </section>
@@ -130,12 +178,12 @@
 
   <footer class="site-footer">
     <div class="measure wide">
-      <p>zk-hashing is a research prototype. It has not been audited and must not protect real accounts.</p>
-      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="research.html">References</a></p>
+      <p>EXPERIMENTAL / RESEARCH PROTOTYPE. Unaudited; must not protect real accounts.</p>
+      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="/research.html">References</a> · <a href="https://tensors.vip">tensors.vip</a></p>
     </div>
   </footer>
 
-  <script type="module" src="nav.js"></script>
+  <script type="module" src="/nav.js"></script>
 
 </body>
 </html>

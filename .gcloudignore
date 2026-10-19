@@ -1,0 +1,8 @@
+.git
+node_modules
+**/node_modules
+**/target
+.tools
+.build-cache
+*.exe
+*.pdb
