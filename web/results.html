@@ -5,38 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Results · zk-hashing</title>
   <meta name="description" content="Measured results for the Argon2id, bcrypt and MiMC-7 circuits: cycle counts, trace lengths, prover memory and time, and the browser and native implementations.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317202e'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%23edf0f2' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="preload" href="fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#020504">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23020504'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%2300ff66' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="preload" href="/fonts/michroma.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/tensors-theme.css">
+  <link rel="stylesheet" href="/tensors-nav.css">
+  <link rel="stylesheet" href="/site-theme.css">
+  <script src="/vendor/three.min.js" defer></script>
+  <script src="/tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-site tensors-home">
   <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header">
-    <div class="site-bar measure wide">
-      <a class="brand" href="./" data-page="index.html">zk-hashing</a>
-      <nav class="site-nav" aria-label="Site">
-        <details class="menu">
-          <summary data-section="info" aria-current="true">Info</summary>
-          <ul class="menu-list">
-            <li><a href="what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
-            <li><a href="how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
-            <li><a href="results.html" data-page="results.html" aria-current="page"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
-            <li><a href="security.html" data-page="security.html"><b>Security analysis</b><span>Guarantees, comparison with OPAQUE, limitations</span></a></li>
-            <li><a href="research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
-          </ul>
-        </details>
-        <details class="menu">
-          <summary data-section="demos">Demos</summary>
-          <ul class="menu-list">
-            <li><a href="verify.html" data-page="verify.html"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
-            <li><a href="experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
-            <li><a href="password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
-            <li><a href="lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
-          </ul>
-        </details>
-        <a class="nav-link" href="https://github.com/kenedii/zk-hashing">Source</a>
-      </nav>
-    </div>
+  <canvas id="cubes" aria-hidden="true"></canvas>
+  <div class="tensors-scan" aria-hidden="true"></div>
+  <header class="tensors-header">
+    <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+    <nav class="tensors-links site-nav" aria-label="Project navigation">
+      <a href="/" data-page="index.html">HOME</a>
+      <details class="menu">
+        <summary data-section="info" aria-current="true">INFO</summary>
+        <ul class="menu-list">
+          <li><a href="/what-is-this.html" data-page="what-is-this.html"><b>What is this?</b><span>The problem and the idea, in plain language</span></a></li>
+          <li><a href="/how-it-works.html" data-page="how-it-works.html"><b>How it works</b><span>Protocol, relation and STARK construction</span></a></li>
+          <li><a href="/results.html" data-page="results.html" aria-current="page"><b>Results</b><span>Circuits, measured costs and the memory wall</span></a></li>
+          <li><a href="/security.html" data-page="security.html"><b>Security analysis</b><span>Comparison with OPAQUE and conventional hashing, quantum, limitations</span></a></li>
+          <li><a href="/research.html" data-page="research.html"><b>Future work and references</b><span>Open problems and sources</span></a></li>
+        </ul>
+      </details>
+      <details class="menu">
+        <summary data-section="demos">DEMOS</summary>
+        <ul class="menu-list">
+          <li><a href="/verify.html" data-page="verify.html"><b>Verify a login proof</b><span>Run the STARK verifier in this browser</span></a></li>
+          <li><a href="/experiments.html" data-page="experiments.html"><b>Proof gallery and experiments</b><span>Published proofs, run data and conclusions</span></a></li>
+          <li><a href="/password-demo.html" data-page="password-demo.html"><b>Password flow</b><span>Classical baseline with a live server</span></a></li>
+          <li><a href="/lab/"><b>Circuit lab</b><span>Commitments for all three circuits; verify your own proofs</span></a></li>
+        </ul>
+      </details>
+      <a href="https://github.com/kenedii/zk-hashing">SOURCE ↗</a>
+    </nav>
   </header>
 
   <main id="main">
@@ -192,12 +200,12 @@
 
   <footer class="site-footer">
     <div class="measure wide">
-      <p>zk-hashing is a research prototype. It has not been audited and must not protect real accounts.</p>
-      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="research.html">References</a></p>
+      <p>EXPERIMENTAL / RESEARCH PROTOTYPE. Unaudited; must not protect real accounts.</p>
+      <p><a href="https://github.com/kenedii/zk-hashing">Source on GitHub</a> · <a href="https://github.com/kenedii/zk-hashing/blob/main/SECURITY.md">Security notes</a> · <a href="/research.html">References</a> · <a href="https://tensors.vip">tensors.vip</a></p>
     </div>
   </footer>
 
-  <script type="module" src="nav.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="/nav.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

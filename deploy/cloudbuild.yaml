@@ -1,9 +1,10 @@
 # Builds the site image and deploys it to the existing Cloud Run service.
 # Run from the repository root:
-#   gcloud builds submit --config deploy/cloudbuild.yaml --project ckenedi-portfolio .
+#   gcloud builds submit --config deploy/cloudbuild.yaml --project coastal-run-510916-q0 .
 substitutions:
   _SERVICE_NAME: zk-hash-frontend
   _REGION: us-central1
+  _REPOSITORY: cloud-run-source-deploy
 
 steps:
   - id: build-image
@@ -13,18 +14,18 @@ steps:
       - -f
       - deploy/Dockerfile
       - -t
-      - gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:$BUILD_ID
       - -t
-      - gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:latest
       - .
 
   - id: push-build-image
     name: gcr.io/cloud-builders/docker
-    args: [push, gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID]
+    args: [push, $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:$BUILD_ID]
 
   - id: push-latest-image
     name: gcr.io/cloud-builders/docker
-    args: [push, gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest]
+    args: [push, $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:latest]
 
   - id: deploy-cloud-run
     name: gcr.io/cloud-builders/gcloud
@@ -33,7 +34,7 @@ steps:
       - deploy
       - $_SERVICE_NAME
       - --image
-      - gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:$BUILD_ID
       - --region
       - $_REGION
       - --platform
@@ -45,7 +46,7 @@ steps:
       - --allow-unauthenticated
 
 images:
-  - gcr.io/$PROJECT_ID/$_SERVICE_NAME:$BUILD_ID
-  - gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest
+  - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:$BUILD_ID
+  - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_SERVICE_NAME:latest
 
 timeout: 1200s

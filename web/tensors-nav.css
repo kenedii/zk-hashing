@@ -1,0 +1,40 @@
+/* Navigation shared by the research pages and the circuit lab: Tensorsvip header with
+   Info and Demos dropdowns. Loaded after tensors-theme.css. */
+.tensors-links { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.tensors-links a, .tensors-links summary {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  color: var(--muted); text-decoration: none; font: 9px var(--wide); letter-spacing: .12em;
+  padding: 12px 14px; border: 1px solid transparent; min-height: 40px;
+}
+.tensors-links summary::-webkit-details-marker { display: none; }
+.tensors-links summary::after {
+  content: ""; width: 5px; height: 5px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translateY(-2px); transition: transform .15s;
+}
+.tensors-links details[open] > summary::after { transform: rotate(-135deg) translateY(-1px); }
+.tensors-links summary:hover, .tensors-links summary:focus-visible, .tensors-links details[open] > summary {
+  color: #fff; border-color: var(--rule); background: linear-gradient(rgba(0,255,102,.13), rgba(0,255,102,.02));
+}
+.tensors-links a[aria-current], .tensors-links summary[aria-current] { color: #00ff66; border-bottom-color: rgba(0,255,102,.7); }
+.menu { position: relative; }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + 8px); width: min(25rem, calc(100vw - 32px));
+  list-style: none; margin: 0; padding: 6px; z-index: 30;
+  background: #02080c; border: 1px solid var(--rule); box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.menu-list li { margin: 0; }
+.tensors-links .menu-list a {
+  display: grid; gap: 4px; padding: 12px 14px; border: 0; border-left: 2px solid transparent;
+  font: 400 15px/1.35 var(--mono); letter-spacing: 0; color: var(--ink); min-height: 0;
+}
+.tensors-links .menu-list a:hover, .tensors-links .menu-list a:focus-visible {
+  background: rgba(0,255,102,.08); border-left-color: #00ff66; color: #fff;
+}
+.tensors-links .menu-list a[aria-current="page"] { border-left-color: #00ff66; background: rgba(0,255,102,.06); }
+.menu-list b { font: 400 11px/1.5 var(--wide); letter-spacing: .06em; font-weight: 400; color: #fff; }
+.menu-list span { font-size: 14px; color: var(--muted); }
+@media (max-width: 760px) {
+  .tensors-links { justify-content: flex-start; gap: 2px; }
+  .tensors-links a, .tensors-links summary { font-size: 8px; padding: 10px 8px; letter-spacing: .08em; }
+  .menu-list { position: fixed; left: 12px; right: 12px; top: 128px; width: auto; max-height: calc(100vh - 150px); overflow-y: auto; }
+}

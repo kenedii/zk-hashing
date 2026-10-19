@@ -71,7 +71,7 @@ for (const file of readdirSync(join(SRC, 'pages')).filter((f) => f.endsWith('.ht
   }));
   const body = renderMath(includeFragments(raw.slice(match[0].length)));
   const scripts = (meta.scripts || '').split(/\s+/).filter(Boolean)
-    .map((src) => `  <script type="module" src="${src}"></script>`).join('\n');
+    .map((src) => `  <script type="module" src="${src.startsWith('/') ? src : `/${src}`}"></script>`).join('\n');
   const page = layout
     .replaceAll('{{title}}', meta.title)
     .replaceAll('{{description}}', meta.description)
