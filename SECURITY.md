@@ -65,7 +65,7 @@ Commands to rerun these checks are in the README under **Testing**.
 - MiMC is circuit-friendly but not memory-hard and must not replace Argon2id/bcrypt as a production password-storage KDF.
 - bcrypt cost 4 is demonstration-only and far below a contemporary password-storage work factor.
 - Miden VM and the Rust-to-Miden compiler are experimental dependencies, and this code has not received an independent cryptographic audit.
-- Zero-knowledge (that a proof reveals nothing about the password) has not been confirmed for the Miden version and proof options used here. Treat proofs as proofs of correct computation until that is checked.
+- Proofs are **not zero-knowledge** with the Miden version used here. Miden VM 0.25.8 builds its STARK config with the non-hiding `LmcsConfig` (`miden-air` `config.rs`) and does not randomize the trace, so query openings are deterministic functions of the witness. Proof JSON has no password field, and checking a guess against the openings still means running the full hash, so offline guessing is no cheaper than against the stored commitment. Even so, treat proofs as proofs of correct computation, not as hiding the password in the formal sense.
 - A leaked database exposes the stored commitments to offline guessing, exactly like a leaked password-hash table. MiMC-7 is fast, so MiMC commitments are cheap to attack.
 - Circuit execution is not constant-time at the VM trace level. Argon2id intentionally uses data-dependent addressing after the first half of pass zero; deployment timing/resource side channels need separate analysis.
 - The browser holds the plaintext in the DOM/Wasm memory while working. It is absent from proof JSON, but XSS, browser extensions, memory snapshots, and a compromised origin remain threats.

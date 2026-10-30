@@ -382,3 +382,13 @@ fn envelope_schema_never_contains_the_password() {
     assert!(!json.contains("hunter2"));
     assert!(!json.contains("password"));
 }
+
+#[test]
+fn non_ascii_salt_is_rejected_without_panicking() {
+    // 32 bytes whose second character is a multibyte UTF-8 sequence.
+    let salt = format!("0{}{}", '\u{20ac}', "0".repeat(28));
+    assert_eq!(salt.len(), 32);
+    assert!(matches!(parse_hex_16(&salt), Err(RuntimeError::InvalidHex(_))));
+    assert!(parse_hex_16("+f0102030405060708090a0b0c0d0e0f").is_err());
+    assert_eq!(parse_hex_16("000102030405060708090A0B0C0D0E0F").unwrap(), SALT);
+}
