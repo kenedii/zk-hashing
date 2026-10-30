@@ -1,0 +1,12 @@
+[package]
+name = "argon2id-circuit-reference-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+argon2 = "0.5.3"
+
+[profile.release]
+overflow-checks = true
+

@@ -1,0 +1,10 @@
+[package]
+name = "bcrypt-password-miden-circuit"
+version = "0.1.0"
+
+[[bin]]
+name = "bcrypt-password-miden-circuit"
+path = "../artifacts/bcrypt_password_miden_circuit.wasm"
+
+[dependencies]
+miden-core = "0.25.8"

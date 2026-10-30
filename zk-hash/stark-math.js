@@ -1,5 +1,5 @@
 // zk-hash/stark-math.js
-// Production-Grade Field Arithmetic & FRI Utilities
+// Field arithmetic, Poseidon, Merkle and FRI utilities for the toy web prover.
 
 const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n; 
 const FIELD_GENERATOR = 5n;

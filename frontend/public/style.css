@@ -37,6 +37,21 @@ h2 {
     margin-bottom: 30px;
 }
 
+.accuracy-note {
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    color: #d6d1c4;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    margin: -10px 0 24px;
+}
+
+.accuracy-note strong {
+    color: #fbbf24;
+}
+
 .control-group {
     margin-bottom: 15px;
 }

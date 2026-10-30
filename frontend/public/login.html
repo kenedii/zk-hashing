@@ -241,8 +241,32 @@
             font-size: 0.8rem;
         }
     </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tensors-theme.css">
+<script src="/vendor/three.min.js" defer></script>
+<script src="tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-demo login-page">
+<canvas id="cubes" aria-hidden="true"></canvas>
+<div class="tensors-scan" aria-hidden="true"></div>
+<header class="tensors-header">
+  <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+  <nav class="tensors-links" aria-label="Project navigation">
+    <a href="/">PROOF LAB</a>
+    <a href="login.html" aria-current="page">AUTH DEMO</a>
+    <a href="architecture.html">ARCHITECTURE</a>
+  </nav>
+</header>
+
+<aside class="demo-notice" role="note">
+  <strong>TOY DEMO.</strong> This page is an interactive walkthrough of the protocol flow. Its
+  browser proof is a simplified mock: it is not sound, not zero-knowledge, and must not be used
+  for authentication. The real system is the
+  <a href="https://github.com/kenedii/zk-hashing#readme">Miden VM implementation</a>, which runs the
+  full Argon2id, bcrypt or MiMC-7 password hash inside a verifier-pinned STARK.
+</aside>
 
 <div class="p2-card">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
@@ -250,9 +274,9 @@
         <a href="architecture.html" style="font-size:0.78rem; color:#58a6ff; text-decoration:none; margin-top:6px;">Docs →</a>
     </div>
     <p class="subtitle">
-        Zero-Knowledge authentication — <strong>no password ever leaves your browser</strong>.<br>
-        Argon2id runs client-side; a STARK proof is sent to the server. The pepper stays
-        exclusively on the server — the client never computes or sees the credential commitment.
+        Research prototype for browser-side password hashing with a STARK-style consistency layer.<br>
+        Argon2id runs client-side, the pepper stays server-side, and request-scoped proof/hash
+        material must be discarded after each verification.
     </p>
 
     <!-- Tab switcher -->
@@ -290,7 +314,7 @@
         </div>
 
         <button class="btn-primary" id="btn-register" onclick="doRegister()">
-            Register with ZK Proof
+            Register with Consistency Proof
         </button>
 
         <div class="status-box" id="status-register"></div>
@@ -309,19 +333,19 @@
         </div>
 
         <button class="btn-primary" id="btn-login" onclick="doLogin()">
-            Login with ZK Proof
+            Login with Consistency Proof
         </button>
 
         <div class="status-box" id="status-login"></div>
     </div>
 
     <div class="security-note">
-        <strong>Pattern 2 security guarantees:</strong><br>
-        • Your password never leaves the browser.<br>
-        • The server stores only <code>C = Poseidon(h₁, serverPepper)</code> — not the hash.<br>
-        • The server pepper is computed <em>exclusively server-side</em> after STARK verification.<br>
-        • A STARK proof attests that Argon2id was run with the correct parameters.<br>
-        • PoW grinding (2²⁴) and 35 FRI queries target ≥ 2¹²⁸ soundness.
+        <strong>Research prototype security model:</strong><br>
+        * Your password is processed in the browser and is not sent to the server.<br>
+        * The server sees request-scoped Argon2id credential material while verifying; it must discard the proof and encoded hash immediately after the request.<br>
+        * The database stores only <code>C = Poseidon(mimc_output, serverPepper)</code>, the public salt, and Argon2id parameters.<br>
+        * The STARK-style proof checks algebraic consistency of the MiMC/FRI wrapper over the client-side KDF output.<br>
+        * This demo does <em>not</em> yet prove the full Argon2id memory-hard computation inside the STARK; that is the next research milestone.
     </div>
 
     <span class="back-link"><a href="/">← Back to demo</a> · <a href="architecture.html">Architecture docs</a></span>
@@ -333,7 +357,7 @@
         <div class="insight-section">
             <span class="insight-label">1. What you just sent to the server (Client ➔ Server)</span>
             <div class="explanation-text">
-                Your browser computed <code>h₁ = Argon2id(password, salt)</code> and generated a ZK-STARK proof. The password NEVER left your browser. Only the proof and public inputs (like the MiMC hash output) were transmitted.
+                Your browser computed an Argon2id output from the password and generated a STARK-style consistency proof over the derived field witness. The password itself was not transmitted. The proof body and encoded hash are request-scoped credential material and must be discarded by the server after verification.
             </div>
             <div id="insight-proof-data" class="insight-data"></div>
         </div>
@@ -341,14 +365,14 @@
         <div class="insight-section">
             <span class="insight-label">2. Server Verification Process</span>
             <div class="explanation-text" id="insight-verify-text">
-                The server validated the STARK proof. Once verified, it took the <code>mimc_output</code> and hashed it with its private pepper to compute <code>C = Poseidon(mimc_output, serverPepper)</code>. The proof and the initial hash (h₁) are then <strong>discarded</strong>.
+                The server validates the consistency proof, then hashes <code>mimc_output</code> with its private pepper to compute <code>C = Poseidon(mimc_output, serverPepper)</code>. The submitted proof, encoded Argon2id output, and intermediate witness must be <strong>discarded</strong> and never stored.
             </div>
         </div>
 
         <div class="insight-section">
             <span class="insight-label">3. Live Database View (What is actually stored)</span>
             <div class="explanation-text">
-                Below is a live fetch of your row in the SQLite database. Notice that neither your password nor the direct hash (h₁) is stored.
+                Below is a live fetch of your row in the SQLite database. Notice that neither your password nor the request-scoped Argon2id output is stored.
             </div>
             <div id="insight-db-data" class="insight-data">Loading...</div>
         </div>
@@ -459,7 +483,7 @@ async function doRegister() {
             setStatus('status-register', 'ok',
                 `<strong>✓ Registered successfully!</strong>\n` +
                 `Username: ${username}\n` +
-                `The server computed and stored <code>C = Poseidon(h₁, pepper)</code> — your password never left the browser.\n\n` +
+                `The server computed and stored <code>C = Poseidon(mimc_output, pepper)</code>. The proof and encoded Argon2id output are discarded after verification.\n\n` +
                 `You can now <a href="#" onclick="switchTab('login');return false;" style="color:#58a6ff;">log in →</a>`
             );
             updateInsights(proof, username, true);
@@ -545,9 +569,9 @@ async function doLogin() {
             setStatus('status-login', 'ok',
                 `<strong>✓ Login successful!</strong>\n${data.message}\n\n` +
                 `The server confirmed your identity by verifying:\n` +
-                `  1. STARK proof (AIR + FRI + PoW)\n` +
-                `  2. Poseidon(h₁, serverPepper) === stored commitment\n` +
-                `Your password was never transmitted or stored.`
+                `  1. STARK-style consistency proof (MiMC AIR + sampled FRI checks + PoW)\n` +
+                `  2. Poseidon(mimc_output, serverPepper) === stored commitment\n` +
+                `Your password was not transmitted; request-scoped hash material must be discarded.`
             );
             updateInsights(proof, username, false);
         } else {
@@ -583,9 +607,9 @@ async function updateInsights(proof, username, isRegister) {
 
     // Update explanation based on action
     if (isRegister) {
-        verifyTextEl.innerHTML = `The server validated the STARK proof. Once verified, it took the <code>mimc_output</code> and hashed it with its private pepper to compute <code>C = Poseidon(mimc_output, serverPepper)</code>. The proof and the initial hash (h₁) were then <strong>discarded</strong>. Only C is stored for user <code>${username}</code>.`;
+        verifyTextEl.innerHTML = `The server validated the consistency proof. Once verified, it took the <code>mimc_output</code> and hashed it with its private pepper to compute <code>C = Poseidon(mimc_output, serverPepper)</code>. The proof body, encoded Argon2id output, and intermediate witness are request-scoped credential material and must be <strong>discarded</strong>. Only C, salt, and params are stored for user <code>${username}</code>.`;
     } else {
-        verifyTextEl.innerHTML = `The server validated the STARK proof, then independently re-computed <code>Poseidon(mimc_output, serverPepper)</code>. It compared this result with the <code>C</code> stored in the database for <code>${username}</code>. Since they matched, you were authenticated!`;
+        verifyTextEl.innerHTML = `The server validated the consistency proof, then independently re-computed <code>Poseidon(mimc_output, serverPepper)</code>. It compared this result with the <code>C</code> stored in the database for <code>${username}</code>. Since they matched, you were authenticated. The request proof and encoded hash are not persisted.`;
     }
 
     // Fetch live db view

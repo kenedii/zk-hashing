@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const params = {};
 
         generateBtn.disabled = true;
-        generateBtn.innerText = "Hashing & Generating Proof...";
+        generateBtn.innerText = "Hashing & Generating Consistency Proof...";
 
         try {
             // Issue #2: fetch a server-issued challenge before generating any proof.
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("Error generating proof: " + e.message + "\nCheck console for details.");
         } finally {
             generateBtn.disabled = false;
-            generateBtn.innerText = "Generate Hash & ZK Proof";
+            generateBtn.innerText = "Generate Hash & Consistency Proof";
         }
     });
 

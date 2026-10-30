@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/target
+**/.tools
+**/.build-cache
+argon2id-zk-stark
+audit-2026-09-04
+showcase
+frontend/data
+*.log

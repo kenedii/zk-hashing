@@ -343,6 +343,16 @@ async function makeArgon2Proof(password, encodedStr, serverChallenge) {
         assert(result.error.includes('maximum allowed'), `Expected DoS error, got: ${result.error}`);
     });
 
+    await test('Truncated or prover-chosen query indices → rejected', async () => {
+        const proof = await makeProof('query-selection');
+        const truncated = deepClone(proof);
+        truncated.queries = truncated.queries.slice(0, 1);
+        assert(!silentVerify(truncated).success, 'Expected truncated query set to be rejected');
+        const repeated = deepClone(proof);
+        repeated.queries = repeated.queries.map(() => deepClone(proof.queries[0]));
+        assert(!silentVerify(repeated).success, 'Expected repeated query to be rejected');
+    });
+
     await test('Tampered FRI layer value → FRI consistency fails', async () => {
         const proof = await makeProof('fri-tamper');
         const tampered = deepClone(proof);

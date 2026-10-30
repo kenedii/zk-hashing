@@ -1,0 +1,7 @@
+# The current Miden compiler's core-Wasm frontend is used intentionally. Its
+# release-candidate component frontend rejects the generated top-level export.
+[build]
+target = "wasm32-wasip1"
+
+[target.wasm32-wasip1]
+rustflags = ["--cfg", "miden"]

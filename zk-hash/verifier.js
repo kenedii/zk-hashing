@@ -1,6 +1,15 @@
 /**
  * zk-hash/verifier.js
- * Production STARK Verifier — 2^128 security target.
+ * Toy STARK-style consistency verifier for the interactive web walkthrough.
+ *
+ * NOT SOUND — do not use for authentication. Known limitations:
+ *  - The witness (nonce = Poseidon(KDF output)) is public, so the proof hides
+ *    nothing and a captured KDF output can be replayed for any new challenge.
+ *  - The constraint divisor x^220 - 1 is not the vanishing polynomial of the
+ *    trace rows, so the quotient is not low-degree and FRI cannot enforce it;
+ *    the final FRI layer is not degree-checked.
+ *  - Secrets fall back to public development defaults.
+ * The real system is the Miden circuit implementation in argon2id-zk-stark/.
  *
  * SECURITY MODEL (Option B — "Client-side KDF + server pepper check"):
  *
@@ -37,8 +46,8 @@
  *      The client submits only mimc_output (already a public input); the pepper
  *      computation is an opaque server-side operation the client cannot observe.
  *
- *  Combined: an attacker must know hashWitness (= Poseidon of the real hash
- *  output), which requires running Argon2id/bcrypt on the correct password.
+ *  Combined, these checks bind the submitted fields together, but hashWitness
+ *  is public: a captured KDF output is a password-equivalent token.
  *
  * FIXES APPLIED:
  *  Fix #2  — Transcript absorbs server_challenge first (Issue #2).
@@ -72,7 +81,7 @@ const BLOWUP        = 32;        // raised from 8 → 32
 const LDE_SIZE      = TRACE_SIZE * BLOWUP; // 8192
 const FRI_FOLDS     = 9;         // raised from 8 → 9
 const NUM_QUERIES   = 35;        // reduced from 50 → 35
-const KDF_CHAIN_LEN = 64;        // Argon2id AIR chain length
+const KDF_CHAIN_LEN = 64;        // Poseidon binding chain over the KDF-derived witness
 const MAX_QUERIES  = 60; // DoS guard
 
 // ── Argon2id parameter floor (Phase 3) ───────────────────────────────────────
@@ -137,7 +146,7 @@ class ZKVerifier {
             console.log("Verifying Proof Type:", proof.proof_type);
 
             if (proof.proof_type === 'standard-hash-proof') {
-                return { success: true, message: `Standard ${proof.algo} Hash Verified (No ZK Proof)` };
+                return { success: false, error: "standard-hash-proof is disabled in the live demo; submit a STARK-backed proof" };
             }
 
             console.log("Verifying embedded STARK with FRI...");
@@ -240,8 +249,8 @@ class ZKVerifier {
             // w being the actual Poseidon encoding of the KDF output bytes:
             //   − The pepper commitment check guarantees output → C consistency.
             //   − This re-computation guarantees w → output consistency.
-            //   − Combined: attacker must know the real hashWitness, which requires
-            //     running Argon2id/bcrypt on the correct password.
+            //   − Limitation: hashWitness is itself public, so anyone who has seen
+            //     one KDF output can repeat this check without the password.
             {
                 // Re-derive the key exactly as the prover does:
                 //   mimcKey = HMAC-SHA256(nonceVal.toString(), serverSecret) mod p
@@ -276,12 +285,12 @@ class ZKVerifier {
             //   (A) mimcKey re-derivation confirms the client knows nonceVal.
             //   (B) MiMC re-computation confirms trace[0]=nonceVal produces mimc_output.
             //   (C) Pepper commitment confirms mimc_output matches the stored credential.
-            //   (D) KDF chain commitment confirms Argon2id AIR binding (Phase 2).
+            //   (D) KDF chain commitment confirms Poseidon binding-chain consistency.
             //   (E) hash_encoded binding check confirms hash_encoded → nonce consistency.
-            // Combined: any tamper with hash_encoded, mimc_output, or any commitment
-            // causes rejection. Attacker must know both the password and server secrets.
+            // Combined: tampering with these fields causes rejection, but a replayed
+            // genuine KDF output is accepted (it is a password-equivalent token).
 
-            // ── (D) Argon2id AIR chain re-derivation ─────────────────────────────────
+            // ── (D) Poseidon binding-chain re-derivation ─────────────────────────────
             // Re-derive the KDF Poseidon chain the same way the prover does and check
             // that kdf_chain_commit matches.  This verifies the Argon2id binding is
             // not heuristic: the prover must have known the correct hashWitness to
@@ -312,13 +321,13 @@ class ZKVerifier {
                 );
                 if (!safeEqualBI(_expectedKDFCommit, BigInt(public_inputs.kdf_chain_commit || "0"))) {
                     throw new Error(
-                        "KDF chain commitment mismatch: Argon2id AIR binding check failed — " +
+                        "KDF binding-chain commitment mismatch: submitted chain does not match the server-derived chain — " +
                         "the submitted kdf_chain_commit does not match the server-derived chain"
                     );
                 }
                 // Also check kdf_trace_root is present (Merkle root of the KDF trace LDE)
                 if (!public_inputs.kdf_trace_root) {
-                    throw new Error("Missing kdf_trace_root — Argon2id AIR trace Merkle root absent");
+                    throw new Error("Missing kdf_trace_root — KDF binding-chain trace Merkle root absent");
                 }
             }
 
@@ -372,7 +381,7 @@ class ZKVerifier {
 
             // Step 4
             transcript.absorb(BigInt(public_inputs.mimc_output || "0"));
-            // Step 4b: KDF chain commitment (Argon2id AIR)
+            // Step 4b: KDF binding-chain commitment
             transcript.absorb(BigInt(public_inputs.kdf_chain_commit || "0"));
 
             // Step 5
@@ -447,8 +456,24 @@ class ZKVerifier {
             // ── 3. VERIFY EACH QUERY ─────────────────────────────────────────────────
             const domainGen = pow(FIELD_GENERATOR, (FIELD_MODULUS - 1n) / BigInt(LDE_SIZE));
 
-            for (const query of queries) {
-                const idx = Number(query.idx);
+            // Query positions are not chosen by the prover: they are re-derived
+            // from the Fiat-Shamir transcript (after the PoW nonce) and must match
+            // exactly, in order, with exactly NUM_QUERIES openings.
+            if (queries.length !== NUM_QUERIES) {
+                throw new Error(`Proof must contain exactly ${NUM_QUERIES} queries; got ${queries.length}`);
+            }
+            const expectedFinalLen = LDE_SIZE >> FRI_FOLDS;
+            if (public_inputs.fri_final.length !== expectedFinalLen) {
+                throw new Error(`fri_final must contain exactly ${expectedFinalLen} values`);
+            }
+
+            for (let k = 0; k < queries.length; k++) {
+                const query = queries[k];
+                const expectedIdx = Number(transcript.challenge() % BigInt(LDE_SIZE));
+                if (!Number.isInteger(query.idx) || query.idx !== expectedIdx) {
+                    throw new Error(`Query ${k} index ${query.idx} does not match transcript-derived index ${expectedIdx}`);
+                }
+                const idx = expectedIdx;
 
                 if (query.p_val      === undefined ||
                     query.p_next_val === undefined ||
@@ -476,8 +501,11 @@ class ZKVerifier {
                     throw new Error(`Invalid Q Merkle path at idx=${idx}`);
                 }
 
-                // ── A2. KDF TRACE MERKLE INCLUSION (Argon2id AIR) ────────────────────
-                if (query.kdf_val !== undefined && query.kdf_path) {
+                // ── A2. KDF BINDING-CHAIN MERKLE INCLUSION ───────────────────────────
+                if (query.kdf_val === undefined || !query.kdf_path) {
+                    throw new Error(`Missing KDF opening at idx=${idx}`);
+                }
+                {
                     const kdfVal = BigInt(query.kdf_val);
                     if (!MerkleTree.verify(public_inputs.kdf_trace_root, idx, kdfVal, query.kdf_path)) {
                         throw new Error(`Invalid KDF Merkle path at idx=${idx}`);
@@ -560,10 +588,12 @@ class ZKVerifier {
 
             return {
                 success: true,
-                message: `ZK-STARK Proof Verified ${algoLabel} — ` +
-                    `AIR(MiMC-${MIMC_ROUNDS}) + FRI[${FRI_FOLDS} folds, ${NUM_QUERIES} queries, blowup=${BLOWUP}] + ` +
-                    `Boundary + RC-Commitment + ${pepperNote} + ` +
-                    `KDF-Chain(Argon2id-AIR,len=${KDF_CHAIN_LEN}) + PoW(2^${POW_BITS}) all passed`
+                message: `STARK consistency proof verified ${algoLabel}: ` +
+                    `MiMC-${MIMC_ROUNDS} AIR + FRI[${FRI_FOLDS} folds, ${NUM_QUERIES} sampled openings, blowup=${BLOWUP}] + ` +
+                    `boundary checks + RC commitment + ${pepperNote} + ` +
+                    `Poseidon KDF-output binding chain(len=${KDF_CHAIN_LEN}) + PoW(2^${POW_BITS}) all passed. ` +
+                    `Note: this prototype proves algebraic consistency from the submitted client-side KDF output; ` +
+                    `it does not yet prove the full Argon2id/bcrypt computation inside the STARK.`
             };
 
         } catch (e) {

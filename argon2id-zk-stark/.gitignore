@@ -1,0 +1,11 @@
+**/target/
+.build-cache/
+.tools/
+tests/node_modules/
+tests/argon2id-zk-browser-smoke.png
+
+# These are deliberate deliverables, not ignored build output.
+!artifacts/*.wasm
+!artifacts/*.masm
+!artifacts/*.masp
+!web/pkg/*
