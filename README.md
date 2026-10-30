@@ -229,7 +229,7 @@ The server sets a strict Content Security Policy with no third-party origins; `'
 
 - The Miden VM is alpha software, and none of this has had an independent audit.
 - Proofs use Miden's 96-bit conjectured security level.
-- Zero-knowledge (that a proof reveals nothing about the password) hasn't been confirmed for this Miden version and its proof options. Treat proofs as proofs of correct computation.
+- Proofs are not zero-knowledge with this Miden version: it uses a non-hiding commitment scheme and does not randomize the trace. No password is transmitted and offline guessing is no cheaper than against the stored commitment, but treat proofs as proofs of correct computation. See [SECURITY.md](SECURITY.md).
 - A leaked database exposes the commitments to offline guessing, like any password-hash table.
 - Argon2id at 8 KiB and bcrypt at cost 4 are demonstration settings, far below what real password storage needs.
 - The circuit profile has no Argon2id secret key or associated data, passwords are limited to 1–64 bytes, salts are fixed at 16 bytes, and Argon2id lanes are limited to 1–4.

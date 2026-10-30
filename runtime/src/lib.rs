@@ -814,11 +814,20 @@ pub fn parse_hex_16(value: &str) -> Result<[u8; SALT_LENGTH], RuntimeError> {
     if value.len() != SALT_LENGTH * 2 {
         return Err(RuntimeError::InvalidHex("expected exactly 16 bytes"));
     }
+    // Decode byte pairs directly so non-ASCII input is rejected instead of
+    // panicking on a UTF-8 character boundary.
+    fn nibble(c: u8) -> Result<u8, RuntimeError> {
+        match c {
+            b'0'..=b'9' => Ok(c - b'0'),
+            b'a'..=b'f' => Ok(c - b'a' + 10),
+            b'A'..=b'F' => Ok(c - b'A' + 10),
+            _ => Err(RuntimeError::InvalidHex("non-hex character")),
+        }
+    }
+    let bytes = value.as_bytes();
     let mut output = [0u8; SALT_LENGTH];
     for (index, byte) in output.iter_mut().enumerate() {
-        let offset = index * 2;
-        *byte = u8::from_str_radix(&value[offset..offset + 2], 16)
-            .map_err(|_| RuntimeError::InvalidHex("non-hex character"))?;
+        *byte = (nibble(bytes[index * 2])? << 4) | nibble(bytes[index * 2 + 1])?;
     }
     Ok(output)
 }
