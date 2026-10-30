@@ -17,20 +17,46 @@
     
     <!-- App Logic -->
     <script src="client.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tensors-theme.css">
+<script src="/vendor/three.min.js" defer></script>
+<script src="tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-demo proof-page">
+<canvas id="cubes" aria-hidden="true"></canvas>
+<div class="tensors-scan" aria-hidden="true"></div>
+<header class="tensors-header">
+  <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+  <nav class="tensors-links" aria-label="Project navigation">
+    <a href="/" aria-current="page">PROOF LAB</a>
+    <a href="login.html">AUTH DEMO</a>
+    <a href="architecture.html">ARCHITECTURE</a>
+  </nav>
+</header>
+
+<aside class="demo-notice" role="note">
+  <strong>TOY DEMO.</strong> This page is an interactive walkthrough of the protocol flow. Its
+  browser proof is a simplified mock: it is not sound, not zero-knowledge, and must not be used
+  for authentication. The real system is the
+  <a href="https://github.com/kenedii/zk-hashing#readme">Miden VM implementation</a>, which runs the
+  full Argon2id, bcrypt or MiMC-7 password hash inside a verifier-pinned STARK.
+</aside>
 
 <div class="container">
-    <div style="text-align: right; margin-bottom: 15px;">
-        <a href="login.html" style="color: #3fb950; text-decoration: none; font-weight: 500; margin-right: 16px;">🔐 ZK Login Demo →</a>
-        <a href="architecture.html" style="color: #58a6ff; text-decoration: none; font-weight: 500;">📚 Architecture Page →</a>
-    </div>
+    <div class="lab-eyebrow"><span></span> CRYPTOGRAPHY / EXPERIMENT 001</div>
     
-    <h1>ZK-Proof Password Hashing</h1>
+    <h1>PASSWORD HASHING.<br><span class="title-accent">PROVABLE COMPUTATION.</span></h1>
     <div class="description">
-        Prove your password without revealing anything.
+        Explore browser-side Argon2id/bcrypt with a STARK-style MiMC consistency wrapper.
         <br>
-        <small>Compute Happens in Browser -> Proof Sent to Server -> Server Verifies Execution.</small>
+        <small>The current prototype verifies algebraic consistency over a client-side KDF output; it does not yet prove full Argon2id/bcrypt execution inside the STARK.</small>
+    </div>
+    <div class="accuracy-note">
+        <strong>Accurate claim:</strong> the live login flow stores only a peppered commitment, salt, and parameters.
+        The server must discard request proofs and encoded hash material after verification. The system is promising
+        research infrastructure, not a production-grade zero-knowledge password proof yet.
     </div>
 
     <!-- Step 1: Input -->
@@ -92,7 +118,7 @@
     </div>
 
     <div class="actions">
-        <button id="btn-generate" class="btn-primary">Generate Hash & ZK Proof</button>
+        <button id="btn-generate" class="btn-primary">Generate Hash & Consistency Proof</button>
     </div>
 
     <!-- Step 2: Output -->

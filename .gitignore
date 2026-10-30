@@ -1,5 +1,18 @@
 *.md
+!/README.md
 .vscode/
 node_modules/
 frontend/node_modules/
 frontend/data/
+
+# Local build/working data and large binaries (publish the CLI via GitHub Releases)
+.build-cache/
+.tools/
+*.exe
+*.log
+argon2id-zk-stark/legacy/
+argon2id-zk-stark/proofs/*.csv
+argon2id-zk-stark/proofs/*.txt
+argon2id-zk-stark/bcrypt-circuit/*.masp
+audit-2026-09-04/
+argon2id-zk-stark/bcrypt-circuit/artifacts/

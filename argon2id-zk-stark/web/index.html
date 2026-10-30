@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Password Hashes · Miden ZK-STARK Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d161d'/%3E%3Cpath d='M18 31h28v20H18zM23 31v-7a9 9 0 0 1 18 0v7' fill='none' stroke='%2359e1bc' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div class="eyebrow"><span class="pulse"></span> LOCAL BROWSER LAB</div>
+      <h1>Password hashing, inside the <span>proof.</span></h1>
+      <p class="lede">Argon2id, bcrypt 2b, and MiMC-7 execute inside distinct Miden programs. The password is private advice; the verifier checks a credential, one-time challenge, and exact program identity.</p>
+      <div class="identity">
+        <span>PROGRAM HASH</span>
+        <code id="program-hash">loading WebAssembly…</code>
+      </div>
+    </header>
+
+    <section class="status-grid" aria-label="implementation status">
+      <article><b>Full computation</b><span id="algorithm-summary">Argon2id v=19</span><i class="ok">inside Miden</i></article>
+      <article><b>Private witness</b><span>password ≤ 64 bytes</span><i class="ok">advice map</i></article>
+      <article><b>Public binding</b><span>credential + challenge</span><i class="ok">verified</i></article>
+      <article><b>Prover path</b><span id="cycle-summary">native recommended</span><i class="warn">algorithm dependent</i></article>
+    </section>
+
+    <main class="workspace">
+      <section class="panel controls">
+        <div class="panel-title">
+          <div><small>01 / WITNESS</small><h2>Build the statement</h2></div>
+          <button class="ghost" id="preset-production" type="button">Production preset</button>
+        </div>
+
+        <label>Algorithm <span>selects the fixed circuit</span>
+          <select id="algorithm">
+            <option value="argon2id" selected>Argon2id v=19 (RFC 9106)</option>
+            <option value="bcrypt2b">bcrypt 2b (EksBlowfish)</option>
+            <option value="mimc7">MiMC-7 password hash</option>
+          </select>
+        </label>
+
+        <label>Password <span>private · never serialized in proof</span>
+          <input id="password" type="password" value="hunter2" maxlength="64" autocomplete="new-password">
+        </label>
+        <label>Salt <span>16 bytes · hex</span>
+          <input id="salt" value="000102030405060708090a0b0c0d0e0f" spellcheck="false">
+        </label>
+
+        <div class="triple" id="argon-params">
+          <label>Memory <span>KiB</span><input id="memory" type="number" value="8" min="8"></label>
+          <label>Passes <span>t</span><input id="passes" type="number" value="1" min="1"></label>
+          <label>Lanes <span>p</span><input id="lanes" type="number" value="1" min="1" max="4"></label>
+        </div>
+
+        <div id="bcrypt-params" class="hidden">
+          <label>bcrypt cost <span>log₂ expansion count · demo minimum 4</span>
+            <input id="bcrypt-cost" type="number" value="4" min="4" max="16">
+          </label>
+        </div>
+
+        <div id="mimc-params" class="algorithm-note hidden">MiMC-7 uses 220 fixed rounds after a domain-separated Poseidon2 absorption of the length, password bytes, and salt. Both stages run inside the circuit. It is circuit-friendly, but unlike Argon2id/bcrypt it is not memory-hard.</div>
+
+        <label>128-bit challenge <span>four unsigned 32-bit words</span>
+          <input id="challenge" value="305419896, 2596069104, 267242409, 2271560481" spellcheck="false">
+        </label>
+        <div class="challenge-note"><strong>Challenge = nonce.</strong> It is a fresh, single-use server value that prevents replay. It is separate from the persistent hash salt and from the STARK’s internal Fiat–Shamir challenges. The old demo used the same concept with a 256-bit value.</div>
+
+        <button class="primary" id="credential-button" type="button">Run Argon2id &amp; compute credential</button>
+
+        <div class="result-card">
+          <span>Expected public credential <small>compute or paste four decimal field elements</small></span>
+          <textarea id="credential" rows="2" placeholder="value0, value1, value2, value3"></textarea>
+        </div>
+      </section>
+
+      <section class="panel proof-panel">
+        <div class="panel-title">
+          <div><small>02 / STARK</small><h2>Prove or verify</h2></div>
+          <span class="wasm-badge" id="wasm-status">initializing</span>
+        </div>
+
+        <div class="preflight" id="preflight">
+          <div><span>VM cycles (estimated)</span><b id="cycles">—</b></div>
+          <div><span>Padded trace rows</span><b id="rows">—</b></div>
+          <div><span>Trace RAM floor</span><b id="ram">—</b></div>
+        </div>
+
+        <div class="notice">
+          <strong id="notice-title">Argon2id proving requirement</strong>
+          <p id="notice-body">The full RFC 9106 circuit measured 19,593,971 cycles even at the 8 KiB minimum. Its 2^25-row trace made the generic Miden prover request about 102 GiB before process overhead. Browser proving is disabled; imported proofs verify quickly.</p>
+        </div>
+
+        <label class="consent hidden" id="browser-consent"><input id="unlock" type="checkbox"> Browser proving is unavailable for this build.</label>
+        <button class="danger" id="prove-button" type="button" disabled>Generate proof with Windows executable</button>
+
+        <div class="native-box">
+          <strong>Native prover executable</strong>
+          <p>Runs the same fixed programs outside the browser and writes UTF-8 <code>proof.json</code>. MiMC proving is tested here; Argon2id and bcrypt still have the RAM floors shown above because native execution does not shrink the STARK trace. Imported-proof verification stays fast and local.</p>
+          <a class="download" href="./native-prover/argon2id-zk-prover.exe" download>Download Windows executable</a>
+          <code id="native-command">argon2id-zk-prover.exe prove …</code>
+          <button class="ghost" id="copy-command" type="button">Copy command</button>
+        </div>
+
+        <label class="proof-label">Proof envelope <span>paste or generated JSON</span>
+          <textarea id="proof" rows="9" placeholder="{ &quot;format&quot;: &quot;argon2id-miden-stark-v1&quot;, … }"></textarea>
+        </label>
+        <label class="file-picker">Load proof.json <input id="proof-file" type="file" accept="application/json,.json"></label>
+        <button class="secondary" id="verify-button" type="button">Verify pasted proof against fields above</button>
+        <pre id="log" aria-live="polite">Ready.</pre>
+      </section>
+    </main>
+
+    <footer>
+      <span>ARGON2ID · BCRYPT 2B · MIMC-7 · MIDEN VM · FRI</span>
+      <span>Research implementation — not audited for production.</span>
+    </footer>
+  </div>
+  <script>
+    window.addEventListener('error', (event) => {
+      const status = document.getElementById('wasm-status');
+      const hash = document.getElementById('program-hash');
+      const output = document.getElementById('log');
+      if (status && status.textContent !== 'Wasm ready') status.textContent = 'load failed';
+      if (hash && hash.textContent.includes('loading')) hash.textContent = 'WebAssembly failed to initialize';
+      if (output) output.textContent = `Page startup error: ${event.message}`;
+    });
+  </script>
+  <script type="module" src="./app.js?v=20260814.2"></script>
+</body>
+</html>

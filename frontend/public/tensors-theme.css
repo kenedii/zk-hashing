@@ -1,0 +1,121 @@
+:root {
+  --bg: #020504;
+  --surface: rgba(4, 14, 20, .88);
+  --surface-2: rgba(12, 29, 36, .92);
+  --border: rgba(160, 220, 255, .22);
+  --border-2: rgba(160, 220, 255, .38);
+  --sky: #19a7ff;
+  --sky-dim: #123748;
+  --green: #00ff66;
+  --red: #ff2a4d;
+  --text: #a7c2cc;
+  --text-2: #d8f5ff;
+  --text-bright: #f2fcff;
+  --mono: 'Share Tech Mono', ui-monospace, monospace;
+  --wide: 'Michroma', sans-serif;
+  --serif: var(--mono);
+  --display: var(--wide);
+}
+* { box-sizing: border-box; }
+html { min-height: 100%; background: var(--bg); scroll-padding-top: 130px; }
+body.tensors-demo {
+  display: block; margin: 0; padding: 112px 24px 64px;
+  min-height: 100vh; background: transparent; color: var(--text-2);
+  font: 16px/1.65 var(--mono); -webkit-font-smoothing: antialiased;
+}
+body.tensors-demo::before { display: none; }
+#cubes { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: .72; }
+.tensors-scan { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: .3;
+  background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.25) 2px 3px); }
+.tensors-header {
+  position: absolute; top: 0; left: 0; width: 100%; z-index: 5;
+  display: flex; justify-content: space-between; align-items: center; gap: 24px;
+  min-height: 72px; padding: 16px 32px; border-bottom: 1px solid var(--border);
+  background: rgba(2, 8, 12, .88); backdrop-filter: blur(16px);
+}
+.tensors-brand { display: inline-flex; align-items: center; gap: 12px; color: #fff;
+  font: 10px var(--wide); letter-spacing: .14em; text-decoration: none; white-space: nowrap; }
+.tensors-brand > span:last-child { color: var(--text); }
+.tensors-mark { display: grid; grid-template-columns: repeat(3, 4px); gap: 4px; border: 1px solid var(--border-2); padding: 9px 7px; }
+.tensors-mark i { width: 4px; height: 4px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.tensors-mark i:nth-child(2) { background: var(--sky); box-shadow: 0 0 8px var(--sky); }
+.tensors-mark i:nth-child(3) { background: var(--red); box-shadow: 0 0 8px var(--red); }
+nav.tensors-links { position: static; height: auto; padding: 0; border: 0; background: none;
+  display: flex; gap: 4px; backdrop-filter: none; }
+.tensors-links a { color: var(--text); text-decoration: none; font: 9px var(--wide);
+  letter-spacing: .12em; padding: 12px 14px; border: 1px solid transparent; }
+.tensors-links a:hover, .tensors-links a[aria-current] { color: #fff; border-color: var(--border);
+  background: linear-gradient(rgba(0,255,102,.13), rgba(0,255,102,.02)); }
+body.proof-page > .container, body.login-page > .p2-card {
+  position: relative; z-index: 1; margin: 0 auto; width: 100%;
+  background: rgba(3, 11, 16, .9); border: 1px solid var(--border-2); border-radius: 0;
+  padding: clamp(22px, 4vw, 48px); backdrop-filter: blur(12px);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.8), 0 20px 90px rgba(0,0,0,.6), inset 0 1px rgba(216,245,255,.06);
+}
+body.proof-page > .container { max-width: 1040px; }
+body.login-page > .p2-card { max-width: 680px; }
+.lab-eyebrow { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 10px;
+  letter-spacing: .25em; margin-bottom: 24px; }
+.lab-eyebrow > span { width: 5px; height: 5px; background: var(--green); box-shadow: 0 0 8px var(--green); }
+body.tensors-demo h1 { color: #fff; font-family: var(--wide); text-align: left; font-size: clamp(20px, 3.1vw, 35px);
+  font-weight: 400; line-height: 1.6; letter-spacing: .035em; margin: 0 0 20px; }
+.title-accent { color: var(--green); }
+body.tensors-demo h2 { color: var(--text-2); font-family: var(--wide); font-size: 12px; letter-spacing: .09em;
+  font-weight: 400; border-color: var(--border); padding-bottom: 14px; margin-top: 34px; }
+body.tensors-demo .description { text-align: left; max-width: 740px; color: var(--text); margin-bottom: 28px; }
+body.tensors-demo .description small { display: inline-block; margin-top: 10px; font-size: 13px; }
+body.tensors-demo .accuracy-note { background: rgba(25,167,255,.055); border-color: rgba(25,167,255,.25);
+  border-radius: 0; color: var(--text); font-size: 13px; }
+body.tensors-demo .accuracy-note strong { color: var(--sky); }
+body.tensors-demo label, body.tensors-demo .field label { color: var(--text); font-size: 13px; font-weight: 400; }
+body.tensors-demo input, body.tensors-demo select, body.tensors-demo textarea {
+  font-family: var(--mono); background: rgba(1,6,9,.88); border: 1px solid var(--border);
+  border-radius: 0; color: var(--text-2); padding: 11px 12px; font-size: 15px; }
+body.tensors-demo input:focus, body.tensors-demo select:focus, body.tensors-demo textarea:focus {
+  outline: 1px solid var(--sky); outline-offset: 2px; border-color: var(--sky); }
+body.tensors-demo button { font-family: var(--mono); border-radius: 0; letter-spacing: .025em; }
+body.tensors-demo .btn-primary, body.tensors-demo .btn-verify {
+  border: 1px solid rgba(0,255,102,.7); background: linear-gradient(rgba(0,255,102,.2), rgba(0,255,102,.04));
+  color: #e4ffef; min-height: 44px; }
+body.tensors-demo .btn-primary:hover:not(:disabled) { background: rgba(0,255,102,.25); }
+body.tensors-demo .btn-verify { border-color: var(--sky); background: linear-gradient(rgba(25,167,255,.22), rgba(25,167,255,.04)); }
+body.tensors-demo .btn-verify:hover:not(:disabled) { background: rgba(25,167,255,.25); }
+body.tensors-demo button:disabled { cursor: not-allowed; opacity: .45; }
+body.tensors-demo .output-section, body.tensors-demo .tab-bar, body.tensors-demo .insight-data {
+  background: rgba(1,6,9,.75); border-color: var(--border); border-radius: 0; }
+body.tensors-demo .tab-btn.active { color: var(--green); background: rgba(0,255,102,.09); }
+body.tensors-demo .security-note, body.tensors-demo .backend-insight { color: var(--text); border-color: var(--border); }
+body.tensors-demo .p2-card h1 { font-size: clamp(18px, 3vw, 25px); color: #fff; }
+body.tensors-demo .subtitle, body.tensors-demo .explanation-text, body.tensors-demo .note { color: var(--text); }
+body.tensors-demo .adv-toggle, body.tensors-demo .back-link a { color: var(--sky); }
+body.architecture-page { padding: 72px 0 48px; }
+body.architecture-page > nav { top: 0; background: rgba(3,11,16,.96); border-color: var(--border); }
+body.architecture-page .page { background: rgba(2,8,12,.86); max-width: 1280px; margin: 0 auto;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+body.architecture-page .hero { background: radial-gradient(ellipse at top, rgba(25,167,255,.09), transparent 70%); }
+body.architecture-page .hero h1 { text-align: center; }
+body.architecture-page .container { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+body.architecture-page .nav-tab, body.architecture-page .nav-login { border-radius: 0; }
+body.architecture-page .card, body.architecture-page .callout, body.architecture-page .code-block { border-radius: 0; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--sky); outline-offset: 4px; }
+@media (max-width: 760px) {
+  body.tensors-demo { padding: 132px 14px 32px; }
+  .tensors-header { padding: 14px 16px; align-items: flex-start; flex-direction: column; gap: 10px; }
+  nav.tensors-links { width: 100%; gap: 0; }
+  .tensors-links a { font-size: 8px; padding: 10px 9px; }
+  body.tensors-demo .row { flex-direction: column; gap: 0; }
+  body.tensors-demo .actions { flex-wrap: wrap; }
+  body.architecture-page { padding: 118px 0 32px; }
+  body.architecture-page > nav { height: auto; min-height: 56px; padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+  body.architecture-page .nav-brand { width: 100%; }
+  body.architecture-page .nav-tab { padding: 6px 8px; font-size: 10px; }
+  body.architecture-page .nav-login { margin-left: 0; padding: 6px 8px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+
+/* Toy-demo notice shown on every page */
+.demo-notice { position: relative; z-index: 5; max-width: 1100px; margin: 0 auto 28px;
+  padding: 12px 16px; border: 1px solid var(--border-2); border-left: 3px solid var(--sky);
+  background: var(--surface); color: var(--text-2); font: 13px/1.6 var(--mono); }
+.demo-notice strong { color: var(--text-bright); letter-spacing: .04em; }
+.demo-notice a { color: var(--sky); }

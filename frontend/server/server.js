@@ -64,18 +64,21 @@ function checkAndConsumeNonce(nonce) {
     return true;
 }
 
-// ── Per-username rate limiting (Phase 3) ─────────────────────────────────────
-// Cap: 5 attempts per username per minute; hard lock after 10 failures.
-// In production, use Redis + sliding-window counters.
-const RATE_WINDOW_MS  = 60_000;
-const MAX_ATTEMPTS    = 5;
-const LOCK_THRESHOLD  = 10;
+// ── Per-username rate limiting ───────────────────────────────────────────────
+// Cap: 5 attempts per username per minute. After 10 attempts the username is
+// cooled down for LOCK_DURATION_MS, then automatically unlocked. Locks always
+// expire so an anonymous caller cannot permanently deny login to a victim.
+// A multi-instance deployment needs a shared store (e.g. Redis) instead.
+const RATE_WINDOW_MS   = 60_000;
+const MAX_ATTEMPTS     = 5;
+const LOCK_THRESHOLD   = 10;
+const LOCK_DURATION_MS = 15 * 60_000;
 
-const usernameAttempts = new Map(); // username → { count, windowStart, locked }
+const usernameAttempts = new Map(); // username → { count, windowStart, lockedUntil }
 setInterval(() => {
     const now = Date.now();
     for (const [k, v] of usernameAttempts) {
-        if (now - v.windowStart > RATE_WINDOW_MS && !v.locked) usernameAttempts.delete(k);
+        if (now - v.windowStart > RATE_WINDOW_MS && now >= (v.lockedUntil || 0)) usernameAttempts.delete(k);
     }
 }, 60_000);
 
@@ -83,11 +86,17 @@ function checkUsernameRateLimit(username) {
     if (!username) return { allowed: true };
     const now = Date.now();
     let rec = usernameAttempts.get(username);
-    if (!rec) { rec = { count: 0, windowStart: now, locked: false }; usernameAttempts.set(username, rec); }
-    if (rec.locked) return { allowed: false, reason: 'Account locked after repeated failures' };
+    if (!rec) { rec = { count: 0, windowStart: now, lockedUntil: 0 }; usernameAttempts.set(username, rec); }
+    if (now < rec.lockedUntil) {
+        return { allowed: false, reason: `Too many attempts — try again in ${Math.ceil((rec.lockedUntil - now) / 60_000)} min` };
+    }
     if (now - rec.windowStart > RATE_WINDOW_MS) { rec.count = 0; rec.windowStart = now; }
     rec.count++;
-    if (rec.count > LOCK_THRESHOLD) { rec.locked = true; return { allowed: false, reason: 'Account locked after repeated failures' }; }
+    if (rec.count > LOCK_THRESHOLD) {
+        rec.lockedUntil = now + LOCK_DURATION_MS;
+        rec.count = 0;
+        return { allowed: false, reason: `Too many attempts — try again in ${LOCK_DURATION_MS / 60_000} min` };
+    }
     if (rec.count > MAX_ATTEMPTS) return { allowed: false, reason: `Too many attempts — wait ${RATE_WINDOW_MS/1000}s` };
     return { allowed: true };
 }
@@ -142,7 +151,7 @@ app.post('/api/verify', ipRateLimit, (req, res) => {
         return res.status(400).json({ success: false, error: "Empty proof body" });
     }
 
-    const allowedTypes = ['zk-stark-fri-full', 'zk-stark-bcrypt', 'zk-stark-argon2', 'standard-hash-proof'];
+    const allowedTypes = ['zk-stark-fri-full', 'zk-stark-bcrypt', 'zk-stark-argon2'];
     if (!allowedTypes.includes(proof.proof_type)) {
         return res.status(400).json({ success: false, error: `Unknown proof_type: ${proof.proof_type}` });
     }
@@ -180,15 +189,12 @@ app.post('/api/verify', ipRateLimit, (req, res) => {
     //        – If the challenge has already been used → 400 (replay attempt).
     //        – If the challenge has expired (TTL) → 400 (stale proof).
     //      Only if it passes do we proceed to the cryptographic STARK verification.
-    // standard-hash-proof is exempt (no STARK transcript to bind to a session).
-    if (proof.proof_type !== 'standard-hash-proof') {
-        const serverChallenge = proof.public_inputs && proof.public_inputs.server_challenge;
-        if (!checkAndConsumeChallenge(serverChallenge)) {
-            return res.status(400).json({
-                success: false,
-                error: "Invalid or missing server_challenge — call GET /api/nonce before generating a proof"
-            });
-        }
+    const serverChallenge = proof.public_inputs && proof.public_inputs.server_challenge;
+    if (!checkAndConsumeChallenge(serverChallenge)) {
+        return res.status(400).json({
+            success: false,
+            error: "Invalid or missing server_challenge — call GET /api/nonce before generating a proof"
+        });
     }
 
     try {
@@ -262,7 +268,9 @@ app.get('/api/p2/salt/:username', ipRateLimit, (req, res) => {
  *   3. Verify the STARK proof with skipPepperCheck=true  ← client has no pepper.
  *   4. Server computes C = Poseidon(mimc_output, serverPepper) entirely server-side.
  *   5. Store {username, pepper_commit=C, argon2_salt, argon2_params} in DB.
- *   6. Return success.  h₁ (Argon2id output) is NEVER stored.
+ *   6. Return success.  The proof body and Argon2id encoded output are request-scoped
+ *      credential material and MUST be discarded after verification; only C, salt,
+ *      and params are stored.
  */
 app.post('/api/p2/register', ipRateLimit, (req, res) => {
     const { proof, username } = req.body || {};
@@ -462,8 +470,8 @@ app.post('/api/p2/login', ipRateLimit, (req, res) => {
 
 /**
  * GET /api/p2/db-view/:username
- * Returns the entire database row for a given username.
- * For demonstration purposes only to show the user what does and does not get stored!
+ * Returns the database row for a username with the stored commitment redacted.
+ * Demonstration only: shows which fields are persisted without exposing C.
  */
 app.get('/api/p2/db-view/:username', ipRateLimit, (req, res) => {
     const username = String(req.params.username || '').trim();
@@ -474,9 +482,16 @@ app.get('/api/p2/db-view/:username', ipRateLimit, (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, error: 'User not found' });
         }
+        // Never return the stored commitment itself to an anonymous caller: show
+        // only enough to illustrate what is persisted.
+        const redacted = { ...user };
+        if (redacted.pepper_commit) {
+            const c = String(redacted.pepper_commit);
+            redacted.pepper_commit = c.slice(0, 6) + '…[redacted, ' + c.length + ' digits]';
+        }
         res.json({
             success: true,
-            user: user
+            user: redacted
         });
     } catch (e) {
         console.error('[p2/db-view] error:', e);

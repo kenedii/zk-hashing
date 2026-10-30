@@ -1,6 +1,8 @@
 /**
  * zk-hash/prover.js
- * 100% Complete STARK Prover: Quotient Check + FRI + Nonce Binding
+ * Toy STARK-style prover for the interactive web walkthrough (quotient + FRI
+ * structure only). NOT SOUND and not zero-knowledge — see verifier.js header.
+ * The real system is the Miden circuit implementation in argon2id-zk-stark/.
  *
  * SECURITY FIXES APPLIED (see ARCHITECTURE_DOCS.md for full details):
  *  Fix #1  — Witness encoding: trace[0] is now the hash output (Poseidon-folded
@@ -59,8 +61,9 @@
     // ── Hash-output → field witness (Fix #1 + Fix #4) ────────────────────────────
     // Convert the raw hash byte array (Uint8Array or Buffer) into a single field
     // element by Poseidon-absorbing each byte-pair as a field element.
-    // This is deterministic, collision-resistant, and uses no secret material —
-    // the circuit begins at this value, which forces correct Argon2id execution.
+    // This is deterministic and uses no secret material. Note: the resulting value
+    // is published as a public input, so it is a password-equivalent token, and
+    // nothing here proves that Argon2id/bcrypt was actually executed.
     function hashBytesToWitness(hashBytes) {
         // Chunk bytes into 31-byte (248-bit) limbs to stay safely under field size
         const LIMB = 31;
@@ -101,7 +104,7 @@
 
         // MiMC-STARK mode: no external hash function.
         // The password itself is encoded as the witness via hashBytesToWitness,
-        // giving the same cryptographic binding guarantees as the other modes.
+        // (the witness is public, as in the other modes).
         // serverChallenge — 256-bit hex string from GET /api/nonce (Issue #2)
         async generateMimcStarkProof(password, serverChallenge) {
             const passwordBytes = typeof TextEncoder !== 'undefined'
@@ -249,32 +252,24 @@
         //                   Client never sees or computes the pepper.
         async generateAuthProof(password, nonce, hashWitness, argon2Params, serverChallenge, options = {}) {
             const pattern2 = Boolean(options.pattern2);
-            console.log("Generating Full STARK Proof...");
+            console.log("Generating STARK-style consistency proof...");
             
             // ── 1. SETUP & SECURITY PARAMETERS ───────────────────────────────────────
             //
-            // Target: 2^128 statistical soundness.
+            // Prototype parameters for a sampled STARK-style consistency check.
             //
-            // STARK soundness error per query = rho^d where rho = TRACE_SIZE/LDE_SIZE = 1/BLOWUP.
-            // With TRACE_SIZE=256, MIMC_ROUNDS=220, BLOWUP=32:
-            //   LDE_SIZE = 8192, rho = 1/32
-            //   Per-query error ≤ (256/8192) = 2^{-5}
-            //   35 independent queries → total error ≤ 2^{-5×35} = 2^{-175}  ✓
-            //
-            // Additionally, Fiat-Shamir grinding (2^POW_BITS PoW) raises the concrete
-            // cost of mounting a forging attack by 2^32 Poseidon evaluations per attempt.
-            //
-            // MIMC_ROUNDS = 220 gives ≥ 220 rounds of algebraic diffusion; at the
-            // standard MiMC-7 security estimate (rounds ≥ log_7(p) ≈ 40), 220 rounds
-            // provides a ×5 safety margin against algebraic/interpolation attacks
-            // and contributes ~25–45 bits of additional concrete security.
+            // These sizes mirror a real STARK layout (blowup 32, 35 queries, 9 FRI
+            // folds, 2^POW_BITS grinding) but this prototype does NOT achieve the
+            // corresponding soundness: the divisor x^220 - 1 is not the trace
+            // vanishing polynomial, the quotient is therefore not low-degree, and
+            // the final FRI layer is not degree-checked. Treat it as illustrative.
             //
             const TRACE_SIZE  = 256;
-            const BLOWUP      = 32;        // raised from 8 → 32 (+5–15 bits soundness)
+            const BLOWUP      = 32;
             const LDE_SIZE    = TRACE_SIZE * BLOWUP; // 8192
-            const MIMC_ROUNDS = 220;       // raised from 128 → 220 (+25–45 bits)
+            const MIMC_ROUNDS = 220;
             const FRI_FOLDS   = 9;         // ceil(log2(LDE_SIZE / TRACE_SIZE)) + 1 = log2(32)+1
-            const NUM_QUERIES = 35;        // reduced from 50; soundness margin ≥ 2^{-175}
+            const NUM_QUERIES = 35;        // verifier re-derives these indices from the transcript
 
             // ── Fix #2: Session-derived MiMC key ─────────────────────────────────────
             // mimcKey = HMAC-SHA256(nonce, SERVER_SECRET) mod p
@@ -360,11 +355,11 @@
             // we use the nonce field element as a stand-in — this mode should not be
             // used for production authentication.
             //
-            // ── Argon2id AIR trace (Phase 2 — embedded KDF binding) ─────────────────
-            // We record an Argon2id binding trace of length KDF_CHAIN_LEN alongside the
-            // MiMC trace.  The trace encodes a Poseidon hash-chain that compresses the
-            // 32-byte Argon2id output into successive field elements, giving a commitment
-            // tree that the AIR enforces via the secondary quotient Q2(x).
+            // KDF-output binding chain (not full Argon2id AIR).
+            // We record a Poseidon binding trace of length KDF_CHAIN_LEN alongside the
+            // MiMC trace. This binds the proof transcript to the client-side KDF output,
+            // but it is NOT a full Argon2id AIR. A production proof would need to encode
+            // Argon2id/bcrypt itself inside an audited AIR or zkVM.
             //
             // kdfTrace[0]  = hashWitness  (= Poseidon(Argon2id bytes), already computed)
             // kdfTrace[i+1]= Poseidon(kdfTrace[i], mimcKey + ROUND_CONSTANTS[i % 220])
@@ -401,8 +396,8 @@
 
             // ── KDF (Argon2id) secondary trace ────────────────────────────────────────
             // kdfTrace: length KDF_CHAIN_LEN, each step is Poseidon-2 of (prev, round-key)
-            // This binds hashWitness (Poseidon of Argon2 bytes) to the proof arithmetically,
-            // replacing the heuristic "witness is just trace[0]" with a full AIR constraint.
+            // This binds hashWitness (Poseidon of the encoded KDF output) to the proof
+            // arithmetically. It is a binding chain, not proof of Argon2id execution.
             const kdfTrace = new Array(KDF_CHAIN_LEN).fill(0n);
             kdfTrace[0] = hashWitness != null ? hashWitness : nonceBigInt;
             for (let i = 0; i < KDF_CHAIN_LEN - 1; i++) {
@@ -462,7 +457,7 @@
             //   verifier re-derives the same chain and checks the commitment matches,
             //   which is equivalent to checking all KDF_CHAIN_LEN-1 constraints.
             //   A full AIR enforcement would require an additional quotient polynomial;
-            //   this commitment-based check provides the same soundness guarantee.
+            //   this commitment check is a recomputation, not a succinct proof.
             const rcTrace = new Array(TRACE_SIZE).fill(0n);
             for (let i = 0; i < MIMC_ROUNDS; i++) rcTrace[i] = ROUND_CONSTANTS[i];
             const polyC = new Polynomial(ntt(rcTrace, true));
@@ -612,8 +607,8 @@
                     mimc_output:        finalOutput.toString(),
                     rc_commitment:      rcCommitment.toString(),
                     trace_root:         treeP.getRoot(),
-                    kdf_trace_root:     treeKDF.getRoot(),       // Argon2 AIR commitment
-                    kdf_chain_commit:   kdfChainCommitment.toString(), // Argon2 AIR chain hash
+                    kdf_trace_root:     treeKDF.getRoot(),       // KDF-output binding chain commitment
+                    kdf_chain_commit:   kdfChainCommitment.toString(), // KDF-output binding chain hash
                     q_root:             treeQ.getRoot(),
                     fri_roots:          friTrees.map(t => t.getRoot()),
                     fri_final:          finalPolyCoeffs.map(c => c.toString()),

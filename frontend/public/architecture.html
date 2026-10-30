@@ -612,8 +612,32 @@ footer {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tensors-theme.css">
+<script src="/vendor/three.min.js" defer></script>
+<script src="tensors-background.js" defer></script>
 </head>
-<body>
+<body class="tensors-demo architecture-page">
+<canvas id="cubes" aria-hidden="true"></canvas>
+<div class="tensors-scan" aria-hidden="true"></div>
+<header class="tensors-header">
+  <a class="tensors-brand" href="https://tensors.vip"><span class="tensors-mark" aria-hidden="true"><i></i><i></i><i></i></span>TENSORS.VIP <span>/ ZK HASH</span></a>
+  <nav class="tensors-links" aria-label="Project navigation">
+    <a href="/">PROOF LAB</a>
+    <a href="login.html">AUTH DEMO</a>
+    <a href="architecture.html" aria-current="page">ARCHITECTURE</a>
+  </nav>
+</header>
+
+<aside class="demo-notice" role="note">
+  <strong>TOY DEMO.</strong> This page is an interactive walkthrough of the protocol flow. Its
+  browser proof is a simplified mock: it is not sound, not zero-knowledge, and must not be used
+  for authentication. The real system is the
+  <a href="https://github.com/kenedii/zk-hashing#readme">Miden VM implementation</a>, which runs the
+  full Argon2id, bcrypt or MiMC-7 password hash inside a verifier-pinned STARK.
+</aside>
 
 <!-- ── NAV ──────────────────────────────────────────────────────────────────── -->
 <nav>
@@ -632,19 +656,22 @@ footer {
 <div class="page active" id="page-main">
 
   <div class="hero">
-    <div class="hero-eyebrow">Zero-Knowledge Authentication</div>
-    <h1>Prove your password<br>without revealing <em>anything</em>.</h1>
+    <div class="hero-eyebrow">Research Prototype Authentication</div>
+    <h1>Browser-side password hashing<br>with a <em>STARK-style</em> consistency layer.</h1>
     <p class="hero-lead">
-      ZK-Auth uses a full STARK proof system to let a client authenticate to a server
-      without ever transmitting — or even computing — a password hash the server could
-      misuse. The server learns only that you know the correct password. Nothing more.
+      ZK-Auth explores a promising direction for high-assurance authentication:
+      combine memory-hard client-side KDFs, server-side peppered commitments, and
+      transparent proof-system techniques. The live demo is intentionally labeled as
+      a research prototype: it verifies a MiMC/FRI consistency wrapper over a
+      client-side KDF output, but it does not yet prove full Argon2id or bcrypt
+      execution inside the STARK.
     </p>
     <div class="hero-badges">
-      <span class="badge badge-sky">▲ STARK / FRI</span>
+      <span class="badge badge-sky">▲ STARK-style / FRI</span>
       <span class="badge badge-violet">Poseidon Hash</span>
       <span class="badge badge-green">Argon2id KDF</span>
       <span class="badge badge-amber">MiMC-7 Circuit</span>
-      <span class="badge badge-sky">2¹²⁸ Security Target</span>
+      <span class="badge badge-sky">Prototype Soundness Model</span>
     </div>
   </div>
 
@@ -652,50 +679,53 @@ footer {
 
     <!-- What the system does -->
     <div class="section">
-      <div class="section-label">Core Guarantee</div>
-      <div class="section-title">What the server never learns</div>
+      <div class="section-label">Claim Calibration</div>
+      <div class="section-title">What this demo actually guarantees</div>
       <p class="section-sub">
-        In every authentication flow, the following invariants hold unconditionally.
+        The project is useful and technically interesting, but its current claims need
+        to be precise. Treat the submitted proof body and encoded KDF output as
+        request-scoped credential material. The server must verify them, compute the
+        peppered commitment, and then discard them.
       </p>
 
       <table class="sec-table">
         <thead>
           <tr>
             <th>Item</th>
-            <th>Transmitted to server?</th>
-            <th>How</th>
+            <th>Status in this prototype</th>
+            <th>Accurate interpretation</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>Raw password</td>
-            <td class="hl-green">✗ Never</td>
+            <td class="hl-green">Not intentionally transmitted</td>
             <td>Stays in browser memory; never serialised or sent</td>
           </tr>
           <tr>
-            <td>Argon2id hash output (h₁)</td>
-            <td class="hl-green">✗ Never (Pattern 2)</td>
-            <td>Used only as circuit witness; not included in proof</td>
+            <td>Argon2id encoded output</td>
+            <td class="hl-amber">Request-scoped credential material</td>
+            <td>Used to bind the proof transcript; server must not log or store it</td>
           </tr>
           <tr>
             <td>Server pepper</td>
-            <td class="hl-green">✗ Never</td>
+            <td class="hl-green">Server-only</td>
             <td>Stored in server env / HSM; client never sees it</td>
           </tr>
           <tr>
-            <td>Commitment C = Poseidon(h₁, pepper)</td>
+            <td>Commitment C = Poseidon(mimc_output, pepper)</td>
             <td class="hl-amber">Server computes at registration</td>
             <td>Client sends <code>mimc_output</code>; server applies pepper itself</td>
           </tr>
           <tr>
-            <td>STARK proof</td>
-            <td class="hl-sky">✓ Sent</td>
-            <td>Proves correct execution; reveals no witness values</td>
+            <td>STARK-style proof</td>
+            <td class="hl-sky">Sent and verified</td>
+            <td>Checks MiMC algebraic consistency, Merkle openings, sampled FRI folds, transcript binding, and PoW</td>
           </tr>
           <tr>
             <td>Argon2id salt &amp; params</td>
-            <td class="hl-sky">✓ Public</td>
-            <td>Stored in DB; returned to client on login so it can re-derive h₁</td>
+            <td class="hl-sky">Public</td>
+            <td>Stored in DB; returned to client on login so it can re-run Argon2id</td>
           </tr>
         </tbody>
       </table>
@@ -706,9 +736,10 @@ footer {
       <div class="section-label">Authentication Patterns</div>
       <div class="section-title">Three modes of operation</div>
       <p class="section-sub">
-        The system supports three auth patterns with different security / complexity trade-offs.
-        <strong class="hl-sky">Pattern 2 is the primary focus</strong> — it is the only mode
-        where the server pepper is completely opaque to the client.
+        The system supports several demo paths with different security / complexity trade-offs.
+        <strong class="hl-sky">Pattern 2 is the primary focus</strong>: it keeps the pepper
+        server-side and stores only a peppered commitment, while acknowledging that full
+        Argon2id-in-STARK proof support is future work.
       </p>
 
       <div class="patterns-grid">
@@ -718,7 +749,8 @@ footer {
           <div class="pattern-name">Standard Hash</div>
           <p class="pattern-desc">
             A classical bcrypt or Argon2id hash is computed client-side and sent to the server.
-            No zero-knowledge proof. Included for baseline comparison only.
+            This live API path is disabled because it is not a STARK-backed authentication proof.
+            It remains useful only as a conceptual baseline.
           </p>
           <div class="pattern-props">
             <div class="prop"><span class="dot dot-red"></span>Hash transmitted to server</div>
@@ -731,13 +763,13 @@ footer {
           <div class="pattern-num">Pattern 1 — Legacy ZK</div>
           <div class="pattern-name">Client Pepper Commit</div>
           <p class="pattern-desc">
-            Client computes <code>C = Poseidon(h₁, serverPepper)</code> and includes it in the
-            proof's public inputs. Server re-computes and compares. Requires the pepper to be
-            available in the client execution context.
+            Legacy mode where client-side code computes a pepper commitment. It is useful for
+            experimentation, but it requires pepper material to be available to the client
+            execution context and should not be used for serious deployments.
           </p>
           <div class="pattern-props">
             <div class="prop"><span class="dot dot-amber"></span>Pepper referenced client-side</div>
-            <div class="prop"><span class="dot dot-green"></span>Full STARK proof</div>
+            <div class="prop"><span class="dot dot-amber"></span>Consistency proof wrapper</div>
             <div class="prop"><span class="dot dot-green"></span>Password never sent</div>
           </div>
         </div>
@@ -746,7 +778,7 @@ footer {
           <div class="pattern-num">Pattern 2 — Primary</div>
           <div class="pattern-name">Server-only Pepper Binding</div>
           <p class="pattern-desc">
-            The client generates a STARK proof with <em>no pepper computation at all</em>.
+            The client generates a STARK-style consistency proof with <em>no pepper computation at all</em>.
             After the server verifies the proof, it independently computes
             <code>Poseidon(mimc_output, serverPepper)</code> and compares against the stored
             commitment. The pepper is an opaque server secret the client never observes.
@@ -755,7 +787,8 @@ footer {
             <div class="dot dot-green"></div>
             <div class="prop"><span class="dot dot-green"></span>Pepper 100% server-side</div>
             <div class="prop"><span class="dot dot-green"></span>Password never sent</div>
-            <div class="prop"><span class="dot dot-green"></span>Full STARK proof + Argon2id binding</div>
+            <div class="prop"><span class="dot dot-amber"></span>MiMC/FRI proof over client-side KDF output</div>
+            <div class="prop"><span class="dot dot-amber"></span>Full Argon2id AIR is future work</div>
             <div class="prop"><span class="dot dot-green"></span>Replay-proof (server challenge)</div>
           </div>
         </div>
@@ -770,7 +803,7 @@ footer {
           </p>
           <div class="pattern-props">
             <div class="prop"><span class="dot dot-amber"></span>No memory-hard KDF</div>
-            <div class="prop"><span class="dot dot-green"></span>Full STARK proof</div>
+            <div class="prop"><span class="dot dot-amber"></span>Small MiMC consistency proof</div>
             <div class="prop"><span class="dot dot-amber"></span>Experimental only</div>
           </div>
         </div>
@@ -798,10 +831,10 @@ footer {
       </div>
 
       <div class="card">
-        <div class="card-title">prover.js — ZKProver (Client-side)</div>
+        <div class="card-title">prover.js — Client-side prototype prover</div>
         <p>
           Runs entirely in the browser. Accepts a password and server challenge, runs
-          Argon2id (WASM), derives the circuit witness, builds the MiMC-7 execution trace,
+          Argon2id (WASM), derives the MiMC witness from the encoded KDF output, builds the MiMC-7 execution trace,
           performs the Low-Degree Extension, constructs the quotient polynomial, commits via
           Merkle trees, runs FRI, grinds PoW, and returns the complete proof object.
         </p>
@@ -812,7 +845,7 @@ footer {
       </div>
 
       <div class="card">
-        <div class="card-title">verifier.js — ZKVerifier (Server-side)</div>
+        <div class="card-title">verifier.js — Server-side consistency verifier</div>
         <p>
           Runs on the server (Node.js). Re-derives <code>mimcKey</code> from the proof
           nonce and server secret, replays the Fiat-Shamir transcript, checks all Merkle
@@ -899,7 +932,8 @@ footer {
     <p class="section-sub">
       Argon2id is the OWASP-recommended password hashing function. It is memory-hard,
       defeating GPU and ASIC brute-force attacks. The following parameter floor is enforced
-      by both the prover and verifier.
+      by both prover and verifier. In this prototype, Argon2id still runs outside the AIR;
+      the proof binds to the resulting encoded KDF string and checks the downstream algebraic wrapper.
     </p>
     <div class="param-grid">
       <div class="param-card">
@@ -926,13 +960,15 @@ footer {
     <div class="math-block">
       <span class="lhs">result</span> <span class="op">=</span> <span class="func">Argon2id</span><span class="op">(</span>password, salt, t, m, p, hashLen<span class="op">)</span><br>
       <span class="lhs">encodedStr</span> <span class="op">=</span> result.encoded &nbsp;&nbsp;<span class="cmt">← "$argon2id$v=19$m=65536,t=3,p=4$&lt;b64salt&gt;$&lt;b64hash&gt;"</span><br>
-      <span class="lhs">h₁</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span>encodedStr<span class="op">))</span>&nbsp;<span class="cmt">← tamper-evident: altering encoded string changes h₁</span>
+      <span class="lhs">h1</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span>encodedStr<span class="op">))</span>&nbsp;<span class="cmt">← tamper-evident binding, not an in-STARK Argon2id proof</span>
     </div>
     <div class="notice notice-amber">
       <strong>Tamper-evidence:</strong> The witness is derived from the full encoded string
       (including parameters and base64 hash), not just the raw hash bytes. Any alteration to
-      <code>encodedStr</code> changes <code>h₁</code>, which changes the transcript nonce, which
-      invalidates every Merkle path and FRI check in the proof.
+      <code>encodedStr</code> changes <code>h1</code>, which changes the transcript nonce, which
+      invalidates every Merkle path and FRI check in the proof. This is a useful integrity
+      check, but it means the encoded string is credential material during the request and
+      must be discarded after verification.
     </div>
   </div>
 
@@ -952,15 +988,15 @@ footer {
       &nbsp; s₀ <span class="op">= RC_A</span> &nbsp;<span class="cmt">← 2π × 10¹⁸ digits (mod p)</span><br>
       &nbsp; sᵢ₊₁ <span class="op">= (</span>sᵢ × RC_B <span class="op">+</span> i × RC_A <span class="op">+ 1) mod p</span>&nbsp;&nbsp;<span class="cmt">← RC_B = φ × 10¹⁸ (golden ratio)</span><br><br>
       <span class="cmt">Execution trace (256 rows, 220 active MiMC rounds):</span><br>
-      &nbsp; trace<span class="op">[0]</span> <span class="op">=</span> h₁&nbsp;&nbsp;<span class="cmt">← Argon2id witness (Fix #1)</span><br>
+      &nbsp; trace<span class="op">[0]</span> <span class="op">=</span> h1&nbsp;&nbsp;<span class="cmt">← field witness derived from encoded KDF output</span><br>
       &nbsp; t <span class="op">= (</span>trace<span class="op">[i]</span> <span class="op">+</span> mimcKey <span class="op">+</span> Cᵢ<span class="op">) mod p</span><br>
       &nbsp; trace<span class="op">[i+1]</span> <span class="op">= t⁷ mod p</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">for i = 0..219</span><br><br>
       <span class="lhs">finalOutput</span> <span class="op">=</span> trace<span class="op">[220]</span>&nbsp;&nbsp;<span class="cmt">← public circuit output (mimc_output in proof)</span>
     </div>
     <p style="color:var(--text-2);">
-      With 220 rounds, MiMC provides a ×5 safety margin over the minimum of ⌈log₇(p)⌉ ≈ 40 rounds
-      required to resist interpolation attacks, contributing an estimated 25–45 additional bits of
-      concrete security.
+      MiMC is attractive here because the transition is a low-degree polynomial, which is exactly
+      the kind of computation STARKs like to prove. The live demo should be read as a prototype
+      construction, not as an independently audited MiMC security claim.
     </p>
   </div>
 
@@ -969,9 +1005,9 @@ footer {
     <div class="section-label">§5 — Proof System</div>
     <div class="section-title">STARK + FRI Construction</div>
     <p class="section-sub">
-      The STARK proof encodes the MiMC execution trace as a polynomial, proves it satisfies
+      The STARK-style proof encodes the MiMC execution trace as a polynomial, checks that it satisfies
       the MiMC AIR constraint everywhere on the trace domain, then uses FRI to prove the
-      resulting quotient polynomial is low-degree.
+      resulting quotient polynomial is low-degree at sampled openings.
     </p>
 
     <div class="param-grid">
@@ -1001,9 +1037,9 @@ footer {
         <div class="param-note">~16M SHA-256 ops</div>
       </div>
       <div class="param-card">
-        <div class="param-label">Security target</div>
-        <div class="param-value">2¹²⁸</div>
-        <div class="param-note">Statistical soundness</div>
+        <div class="param-label">Claim status</div>
+        <div class="param-value">Research</div>
+        <div class="param-note">Not a formal 128-bit proof claim</div>
       </div>
     </div>
 
@@ -1013,9 +1049,9 @@ footer {
       <span class="cmt">— Quotient Polynomial —</span><br>
       Q(x) <span class="op">= [</span>P(w·x) <span class="op">− (</span>P(x) <span class="op">+</span> mimcKey <span class="op">+</span> C(x)<span class="op">)⁷] /</span> Z_T(x)<br>
       Z_T(x) <span class="op">= x^220 − 1</span>&nbsp;&nbsp;<span class="cmt">← vanishing polynomial (zeros on trace domain)</span><br><br>
-      <span class="cmt">If Q is low-degree, the constraint holds on all 220 steps — soundness 2⁻¹⁷⁵</span><br><br>
-      <span class="cmt">— Secondary KDF trace (Argon2id AIR binding) —</span><br>
-      kdfTrace<span class="op">[0]</span>   <span class="op">=</span> h₁<br>
+      <span class="cmt">Sampling intuition: 35 query openings with blowup 32 gives a strong heuristic check for this toy construction.</span><br><br>
+      <span class="cmt">— Secondary Poseidon binding chain (not Argon2id AIR) —</span><br>
+      kdfTrace<span class="op">[0]</span>   <span class="op">=</span> h1<br>
       kdfTrace<span class="op">[i+1]</span> <span class="op">=</span> <span class="func">Poseidon</span><span class="op">(</span>kdfTrace<span class="op">[i]</span>, <span class="op">(</span>mimcKey <span class="op">+</span> C<span class="op">[i mod 220]) mod p)</span>&nbsp;&nbsp;<span class="cmt">← 64 rows</span><br>
       kdfChainCommit <span class="op">=</span> <span class="func">Poseidon-fold</span><span class="op">(</span>kdfTrace<span class="op">[0..63])</span>
     </div>
@@ -1027,7 +1063,7 @@ footer {
     </p>
     <div class="math-block">
       <span class="cmt">Step 0:</span>  absorb(server_challenge)  <span class="cmt">← 256-bit server nonce — binds proof to this session</span><br>
-      <span class="cmt">Step 1:</span>  absorb(nonce)             <span class="cmt">← hashWitness = h₁ field element</span><br>
+      <span class="cmt">Step 1:</span>  absorb(nonce)             <span class="cmt">← field witness derived from encoded KDF output</span><br>
       <span class="cmt">Step 2:</span>  absorb(mimcKey)           <span class="cmt">← HMAC-derived session key</span><br>
       <span class="cmt">Step 3:</span>  absorb(rc_commitment)     <span class="cmt">← Poseidon fold of all 220 round constants</span><br>
       <span class="cmt">Step 4:</span>  absorb(mimc_output)       <span class="cmt">← final MiMC circuit output</span><br>
@@ -1047,41 +1083,46 @@ footer {
   <!-- SOUNDNESS -->
   <div class="section">
     <div class="section-label">§6 — Security Argument</div>
-    <div class="section-title">Soundness &amp; Concrete Security</div>
+    <div class="section-title">Soundness Model &amp; Current Limits</div>
     <table class="sec-table">
       <thead>
-        <tr><th>Component</th><th>Contribution</th><th>Bits</th></tr>
+        <tr><th>Component</th><th>What it gives today</th><th>Status</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td>FRI query soundness</td>
-          <td>Per-query error ≤ 2⁻⁵ (ρ = 1/32); 35 queries → 2⁻¹⁷⁵</td>
-          <td class="hl-green">175</td>
+          <td>FRI query sampling</td>
+          <td>35 sampled openings over a 32x LDE give a strong consistency check for the MiMC wrapper</td>
+          <td class="hl-amber">Prototype heuristic</td>
         </tr>
         <tr>
           <td>Fiat-Shamir PoW grinding</td>
-          <td>2²⁴ SHA-256 work per forged proof attempt</td>
-          <td class="hl-green">+24</td>
+          <td>Requires about 2^24 SHA-256 trials to find an accepted transcript grind nonce</td>
+          <td class="hl-sky">Concrete work factor</td>
         </tr>
         <tr>
           <td>MiMC-7 algebraic security</td>
-          <td>220 rounds vs. ⌈log₇(p)⌉ ≈ 40 minimum → ×5 safety margin</td>
-          <td class="hl-green">+25–45</td>
+          <td>Low-degree field transition suitable for AIR experiments; constants and parameters are not third-party audited</td>
+          <td class="hl-amber">Research primitive use</td>
         </tr>
         <tr>
           <td>Argon2id memory-hardness</td>
-          <td>64 MB RAM required per hash → ASIC/GPU brute-force infeasible</td>
-          <td class="hl-sky">KDF layer</td>
+          <td>Applies to client-side password derivation and offline guessing cost; not proven inside the STARK yet</td>
+          <td class="hl-green">Real KDF, external to AIR</td>
         </tr>
         <tr>
           <td>Timing-safe comparisons</td>
           <td>All commitment checks use crypto.timingSafeEqual (Phase 3)</td>
-          <td class="hl-sky">Side-channel</td>
+          <td class="hl-sky">Implementation hardening</td>
         </tr>
         <tr>
           <td>Session replay prevention</td>
           <td>server_challenge absorbed first; each proof bound to one login</td>
-          <td class="hl-sky">Protocol</td>
+          <td class="hl-sky">Protocol hardening</td>
+        </tr>
+        <tr>
+          <td>Production-grade ZK claim</td>
+          <td>A legitimate 128-bit soundness claim requires an audited proof backend and an AIR/zkVM that includes Argon2id/bcrypt itself</td>
+          <td class="hl-red">Future work</td>
         </tr>
       </tbody>
     </table>
@@ -1100,16 +1141,17 @@ footer {
   <div class="section-label" style="padding-top:12px;">Auth Workflows — Pattern 2</div>
   <h2 class="section-title" style="font-size:2rem;margin-bottom:8px;">From Password to Commitment</h2>
   <p style="color:var(--text-2);max-width:720px;margin-bottom:12px;">
-    Step-by-step walkthrough of Pattern 2 — the primary auth mode — showing exactly how a
-    user's password is transformed into a stored commitment the server can verify,
-    without the password or Argon2id output ever leaving the client.
+    Step-by-step walkthrough of Pattern 2 — the primary auth mode — showing how a
+    browser-side Argon2id result is transformed into a stored peppered commitment.
+    The password is not sent; the proof body and encoded KDF output are request-scoped
+    credential material and must be discarded after verification.
   </p>
 
   <div class="notice notice-sky" style="margin-bottom:32px;">
     <strong>Key insight:</strong> The server stores <code>C = Poseidon(mimc_output, serverPepper)</code>.
-    The client proves (via STARK) that it knows a password whose Argon2id output, when run through
-    MiMC-7, produces <code>mimc_output</code>. The server then applies the pepper itself — the client
-    never computes or sees C.
+    The client runs Argon2id locally, then the prototype proof verifies the downstream MiMC/FRI
+    consistency wrapper over that KDF-derived witness. The server applies the pepper itself —
+    the client never computes or sees C.
   </div>
 
   <div class="workflow-tabs">
@@ -1135,8 +1177,8 @@ footer {
           </div>
           <p class="step-desc">
             The user types their username and password into the browser. The password
-            never leaves JavaScript memory — it is never serialised, logged, or sent over
-            the network at any point in this flow.
+            is not sent over the network by this flow. As with any browser-side password
+            system, the page must avoid logging it and must be served over trusted HTTPS.
           </p>
           <div class="step-example">
             <div class="step-example-label">Example inputs</div>
@@ -1191,7 +1233,9 @@ footer {
             The client generates a 16-byte random salt using <code>crypto.getRandomValues</code>.
             Argon2id is then run in-browser via WebAssembly with parameters at or above the
             enforced floor (t ≥ 3, m ≥ 65 536 KB). The result is the full encoded string —
-            including the parameters and base64-encoded hash — which is used as the circuit witness.
+            including the parameters and base64-encoded hash — which is used to derive the
+            MiMC witness. That encoded string is not stored, but it is request-scoped
+            credential material while verification is happening.
           </p>
           <div class="step-example">
             <div class="step-example-label">Argon2id execution</div>
@@ -1199,10 +1243,10 @@ footer {
               <span class="lhs">salt</span> <span class="op">=</span> <span class="func">crypto.getRandomValues</span><span class="op">(16 bytes)</span> &nbsp;<span class="cmt">← unique per user</span><br>
               <span class="lhs">result</span> <span class="op">=</span> <span class="func">Argon2id</span><span class="op">(password, salt, t=3, m=65536, p=4, hashLen=32)</span><br><br>
               <span class="lhs">encodedStr</span> <span class="op">=</span> <span class="val">"$argon2id$v=19$m=65536,t=3,p=4$&lt;b64salt&gt;$&lt;b64hash&gt;"</span><br><br>
-              <span class="lhs">h₁</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(encodedStr))</span><br>
+              <span class="lhs">h1</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(encodedStr))</span><br>
               &nbsp;&nbsp; <span class="cmt">← chunk UTF-8 bytes into 31-byte limbs → Poseidon-absorb → single field element</span><br>
-              &nbsp;&nbsp; <span class="cmt">← h₁ ∈ 𝔽_p  (tamper-evident: any change to encodedStr → different h₁)</span><br><br>
-              <span class="lhs">nonce</span> <span class="op">=</span> h₁.toString() &nbsp;<span class="cmt">← used as MiMC key seed AND transcript step 1</span>
+              &nbsp;&nbsp; <span class="cmt">← h1 is a field element; any change to encodedStr gives a different h1</span><br><br>
+              <span class="lhs">nonce</span> <span class="op">=</span> h1.toString() &nbsp;<span class="cmt">← used as MiMC key seed AND transcript step 1</span>
             </div>
           </div>
         </div>
@@ -1229,7 +1273,7 @@ footer {
             <div class="step-example-label">HMAC key derivation (Fix #2)</div>
             <div class="math-block" style="margin:0;">
               <span class="lhs">mimcKey</span> <span class="op">=</span> <span class="func">HMAC-SHA256</span><span class="op">(</span>nonce, serverSecret<span class="op">) mod p</span><br>
-              <span class="cmt">           ↑ nonce = h₁.toString()  |  serverSecret from HSM/env var</span><br>
+              <span class="cmt">           ↑ nonce = h1.toString()  |  serverSecret from HSM/env var</span><br>
               <span class="cmt">           ← 256-bit HMAC output reduced mod p → field element</span><br>
               <span class="cmt">           ← session-specific: different every login, unpredictable without serverSecret</span>
             </div>
@@ -1249,21 +1293,21 @@ footer {
             <span class="step-where where-client">Client</span>
           </div>
           <p class="step-desc">
-            The prover builds a 256-row execution trace. The first row is the Argon2id
-            witness <code>h₁</code>. Each subsequent row applies one MiMC-7 step: add the
+            The prover builds a 256-row execution trace. The first row is the field witness
+            derived from the encoded Argon2id output. Each subsequent row applies one MiMC-7 step: add the
             key and round constant, then raise to the 7th power. This is the computation
-            the STARK proof will certify.
+            the consistency proof will check.
           </p>
           <div class="step-example">
             <div class="step-example-label">MiMC-7 trace (220 active rounds, 256 rows total)</div>
             <div class="math-block" style="margin:0;">
-              trace<span class="op">[0]</span> <span class="op">=</span> h₁&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Argon2id witness (Fix #1)</span><br>
+              trace<span class="op">[0]</span> <span class="op">=</span> h1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← witness derived from encoded KDF output</span><br>
               <span class="op">for</span> i = 0..219:<br>
               &nbsp; t &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="op">(</span>trace<span class="op">[i]</span> <span class="op">+</span> mimcKey <span class="op">+</span> C<span class="op">[i]) mod p</span><br>
               &nbsp; trace<span class="op">[i+1]</span> <span class="op">= t⁷ mod p</span><br><br>
               <span class="lhs">mimc_output</span> <span class="op">= finalOutput</span> <span class="op">=</span> trace<span class="op">[220]</span>&nbsp;&nbsp;<span class="cmt">← public proof output</span><br><br>
               <span class="cmt">Simultaneously, build the 64-row Argon2id KDF binding trace:</span><br>
-              kdfTrace<span class="op">[0]</span>   <span class="op">=</span> h₁<br>
+              kdfTrace<span class="op">[0]</span>   <span class="op">=</span> h1<br>
               kdfTrace<span class="op">[i+1]</span> <span class="op">=</span> <span class="func">Poseidon</span><span class="op">(</span>kdfTrace<span class="op">[i]</span>, <span class="op">(</span>mimcKey <span class="op">+</span> C<span class="op">[i mod 220]) mod p)</span><br>
               kdfCommit &nbsp;&nbsp;&nbsp;&nbsp; <span class="op">=</span> <span class="func">Poseidon-fold</span><span class="op">(</span>kdfTrace<span class="op">[0..63])</span>
             </div>
@@ -1419,13 +1463,13 @@ footer {
             <div class="step-example-label">public_inputs (Pattern 2 — pepper_commit omitted)</div>
             <div class="math-block" style="margin:0;">
               <span class="op">{</span><br>
-              &nbsp; nonce:             h₁.toString(),&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← hashWitness</span><br>
+              &nbsp; nonce:             h1.toString(),&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← field witness</span><br>
               &nbsp; server_challenge:  <span class="val">"a3f9b2...c4e1"</span>,<br>
               &nbsp; mimc_key_hint:     mimcKey.toString(),<br>
               &nbsp; mimc_output:       trace<span class="op">[220]</span>.toString(),&nbsp;&nbsp;<span class="cmt">← public output</span><br>
               &nbsp; rc_commitment:     ...,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Poseidon fold of C[0..219]</span><br>
               &nbsp; trace_root:        ...,<br>
-              &nbsp; kdf_trace_root:    ...,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Argon2id AIR commitment</span><br>
+              &nbsp; kdf_trace_root:    ...,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← Poseidon binding-chain trace root</span><br>
               &nbsp; kdf_chain_commit:  ...,<br>
               &nbsp; q_root:            ...,<br>
               &nbsp; fri_roots:         <span class="op">[</span>9 roots<span class="op">]</span>,<br>
@@ -1452,7 +1496,7 @@ footer {
           </div>
           <p class="step-desc">
             The server's <code>ZKVerifier.verify(proof, {skipPepperCheck: true})</code>
-            performs a complete STARK verification: re-derives mimcKey, replays the transcript,
+            performs the prototype consistency verification: re-derives mimcKey, replays the transcript,
             checks all Merkle paths, verifies the AIR constraint at all 35 query indices,
             checks FRI consistency across all 9 folds, and validates the PoW nonce.
           </p>
@@ -1477,6 +1521,11 @@ footer {
               <span class="cmt">H. Validate PoW: SHA-256(state ‖ pow_nonce)[0..23] == 0</span>
             </div>
           </div>
+          <div class="notice notice-amber" style="margin-top:14px;">
+            <strong>Important limitation:</strong> this verifies the MiMC/FRI wrapper and the
+            binding to the submitted encoded Argon2id string. It does not prove the full
+            Argon2id memory-hard computation inside the STARK.
+          </div>
         </div>
       </div>
 
@@ -1496,7 +1545,8 @@ footer {
             <code>verifyPepperCommitP2</code>. During registration, the server
             computes C and stores it alongside the username and Argon2id salt.
             The pepper is read from the server environment (HSM in production).
-            The client never sees this value.
+            The client never sees this value. The proof body, encoded Argon2id output,
+            and intermediate witness are discarded after the request.
           </p>
           <div class="step-example">
             <div class="step-example-label">Commitment computation &amp; storage (server-only)</div>
@@ -1506,7 +1556,7 @@ footer {
               <span class="lhs">C</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">=</span> <span class="func">Poseidon</span><span class="op">([</span>mimc_output, pepperField<span class="op">])</span><br>
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← C is what gets stored in the database</span><br><br>
               DB.store<span class="op">({</span> username, C, salt, argon2_params <span class="op">})</span><br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← server stores C (not h₁, not mimc_output directly)</span>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">← server stores C (not encoded hash, not mimc_output directly)</span>
             </div>
           </div>
           <div class="notice notice-green" style="margin-top:14px;">
@@ -1525,9 +1575,9 @@ footer {
   <div class="workflow-pane" id="wf-login">
 
     <div class="notice notice-sky" style="margin-bottom:32px;">
-      Login reuses the same STARK proof machinery. The key difference: the Argon2id salt
+      Login reuses the same consistency-proof machinery. The key difference: the Argon2id salt
       is fetched from the server (it was stored at registration) so the client can reproduce
-      the exact same <code>h₁</code> from the same password.
+      the same KDF-derived witness from the same password.
     </div>
 
     <div class="step-chain">
@@ -1572,19 +1622,19 @@ footer {
         <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
         <div class="step-body">
           <div class="step-header">
-            <div class="step-title">Re-derive h₁ with the same Argon2id params</div>
+            <div class="step-title">Re-derive the KDF witness with the same Argon2id params</div>
             <span class="step-where where-client">Client</span>
           </div>
           <p class="step-desc">
             Argon2id is a deterministic function: given the same password, salt, and parameters,
             it always produces the same output. The client re-runs Argon2id with the retrieved salt
-            to reproduce the exact <code>h₁</code> that was used during registration.
+            to reproduce the same field witness that was used during registration.
           </p>
           <div class="step-example">
             <div class="step-example-label">Deterministic re-derivation</div>
             <div class="math-block" style="margin:0;">
-              <span class="lhs">h₁</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span><span class="func">Argon2id</span><span class="op">(</span>password, same_salt, same_params<span class="op">)</span>.encoded<span class="op">))</span><br>
-              <span class="cmt">← identical to registration h₁ iff correct password + same salt/params</span>
+              <span class="lhs">h1</span> <span class="op">=</span> <span class="func">hashBytesToWitness</span><span class="op">(</span><span class="func">UTF8</span><span class="op">(</span><span class="func">Argon2id</span><span class="op">(</span>password, same_salt, same_params<span class="op">)</span>.encoded<span class="op">))</span><br>
+              <span class="cmt">← identical to registration h1 iff correct password + same salt/params</span>
             </div>
           </div>
         </div>
@@ -1601,7 +1651,7 @@ footer {
             Steps 4–9 of registration repeat identically: derive mimcKey, build MiMC trace,
             LDE, Merkle trees, FRI folds, PoW grinding, and query openings. The resulting
             <code>mimc_output = trace[220]</code> will match the registration value only
-            if <code>h₁</code> is the same — which happens only if the password is correct.
+            if the KDF-derived witness is the same — which happens only if the password is correct.
           </p>
         </div>
       </div>
@@ -1614,9 +1664,10 @@ footer {
             <span class="step-where where-server">Server</span>
           </div>
           <p class="step-desc">
-            The server runs the full STARK verifier (<code>verify(proof, {skipPepperCheck: true})</code>),
-            confirming that the proof is structurally valid and internally consistent. This proves the
-            client ran Argon2id and MiMC correctly, producing the stated <code>mimc_output</code>.
+            The server runs the consistency verifier (<code>verify(proof, {skipPepperCheck: true})</code>),
+            confirming that the submitted proof is structurally valid and internally consistent.
+            It checks the MiMC/FRI wrapper and binding to the submitted encoded KDF output;
+            it does not yet prove Argon2id itself inside the STARK.
           </p>
         </div>
       </div>
@@ -1629,7 +1680,7 @@ footer {
             <span class="step-where where-server">Server</span>
           </div>
           <p class="step-desc">
-            After the STARK is verified, <code>verifyPepperCommitP2(mimc_output, storedC)</code>
+            After the consistency proof is verified, <code>verifyPepperCommitP2(mimc_output, storedC)</code>
             is called. The server recomputes <code>Poseidon(mimc_output, serverPepper)</code> and
             compares it — using timing-safe equality — to the stored commitment C. If they match,
             authentication succeeds.
@@ -1645,10 +1696,10 @@ footer {
             </div>
           </div>
           <div class="notice notice-green" style="margin-top:14px;">
-            <strong>Security closure:</strong> An attacker who can forge a STARK proof but does not
-            know the correct password will produce a <code>mimc_output</code> that differs from the
-            registered value. The pepper check will fail. The STARK proof and the pepper check are
-            independent security layers — both must pass.
+            <strong>Security closure:</strong> An attacker who submits a proof for a different password will produce
+            a different <code>mimc_output</code>. The pepper check will fail. A real production-grade
+            ZK password proof would strengthen this by proving Argon2id/bcrypt itself inside
+            the proof system.
           </div>
         </div>
       </div>
@@ -1661,7 +1712,7 @@ footer {
 
 <!-- ── FOOTER ──────────────────────────────────────────────────────────────── -->
 <footer>
-  ZK-AUTH — STARK + FRI + ARGON2ID · PATTERN 2 · 2¹²⁸ SECURITY TARGET · DOCS v1.0
+  ZK-AUTH — STARK-STYLE FRI PROTOTYPE + ARGON2ID · PATTERN 2 · RESEARCH CLAIMS · DOCS v1.1
 </footer>
 
 <script>
